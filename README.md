@@ -7,10 +7,14 @@ A fun, visually appealing tower defense game built with HTML5 Canvas and vanilla
 - **Multiple Tower Types**: Basic, Rapid Fire, Sniper, and Cannon towers, each with unique stats
 - **Enemy Waves**: Progressive difficulty with different enemy types (Basic, Fast, Tank, Boss)
 - **Tower Upgrades**: Upgrade your towers to increase damage, range, and fire rate
+- **Sell Towers**: Sell placed towers for a 70% refund of your investment
+- **Fast Forward**: Speed up gameplay (2x, 3x, 4x speed)
+- **Random Map Generation**: Procedurally generated maps with seed-based randomization
 - **Particle Effects**: Beautiful visual effects for explosions, hits, and money collection
-- **Pathfinding**: Enemies follow a predefined path from start to finish
+- **Pathfinding**: Enemies follow a semi-random path from start to finish
 - **Currency System**: Earn money by defeating enemies, spend it on towers and upgrades
 - **Health System**: Protect your base - lose health when enemies reach the end
+- **Range Preview**: Visual range indicator when placing towers
 
 ## How to Play
 
@@ -39,7 +43,18 @@ A fun, visually appealing tower defense game built with HTML5 Canvas and vanilla
 - **Mouse Click**: Place tower or select existing tower
 - **Start Wave**: Begin the next wave
 - **Pause**: Pause/resume the game
+- **Fast Forward**: Toggle between 2x, 3x, and 4x speed (default is 2x)
 - **Upgrade Selected**: Upgrade the currently selected tower
+- **Sell Tower**: Sell the selected tower for a refund
+- **Map Seed**: Enter a seed number to generate a specific map, or use random seed button
+
+## Map Generation
+
+The game features procedurally generated maps with seed-based randomization:
+- Each map is unique but deterministic (same seed = same map)
+- Enter a seed number to replay a specific map
+- Share seed numbers with friends to play the same map
+- Maps are generated with winding paths that ensure playability
 
 ## Running the Game
 
