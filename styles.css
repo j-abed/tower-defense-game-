@@ -1,0 +1,323 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.game-container {
+    background: #2c3e50;
+    border-radius: 15px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    max-width: 1400px;
+    width: 100%;
+}
+
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.5em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.main-content {
+    display: flex;
+    gap: 0;
+}
+
+.sidebar {
+    width: 300px;
+    background: #34495e;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    color: white;
+}
+
+.stats-panel, .tower-selection, .game-controls, .map-controls {
+    background: #2c3e50;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.stats-panel h2, .tower-selection h2, .map-controls h2 {
+    margin-bottom: 15px;
+    color: #ecf0f1;
+    font-size: 1.2em;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #34495e;
+}
+
+.stat-label {
+    color: #bdc3c7;
+}
+
+.stat-value {
+    color: #3498db;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.tower-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tower-btn {
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.tower-btn:hover {
+    background: #667eea;
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.tower-btn.selected {
+    background: #667eea;
+    border-color: #f39c12;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+}
+
+.tower-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.basic-tower {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.rapid-tower {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.sniper-tower {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.cannon-tower {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+}
+
+.tower-info {
+    flex: 1;
+    text-align: left;
+}
+
+.tower-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.tower-cost {
+    font-size: 0.9em;
+    color: #f39c12;
+}
+
+.game-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.control-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: white;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.control-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.control-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.control-btn.active {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+}
+
+.sell-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.sell-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+}
+
+.map-controls {
+    margin-top: 10px;
+}
+
+.seed-control {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.seed-control label {
+    color: #bdc3c7;
+    font-size: 0.9em;
+    min-width: 50px;
+}
+
+.seed-input {
+    flex: 1;
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: white;
+    font-size: 0.9em;
+}
+
+.seed-input:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 5px rgba(243, 156, 18, 0.3);
+}
+
+.seed-btn {
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: white;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.3s ease;
+    min-width: 35px;
+}
+
+.seed-btn:hover {
+    background: #667eea;
+    transform: scale(1.1);
+}
+
+.seed-display {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid #34495e;
+    font-size: 0.9em;
+}
+
+.game-area {
+    flex: 1;
+    position: relative;
+    background: #1a1a1a;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    background: #2c3e50;
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.overlay-content h2 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: #e74c3c;
+}
+
+.overlay-content p {
+    font-size: 1.2em;
+    margin-bottom: 30px;
+    color: #ecf0f1;
+}
+
+@media (max-width: 1200px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .stats-panel, .tower-selection, .game-controls {
+        flex: 1;
+        min-width: 250px;
+    }
+}
+

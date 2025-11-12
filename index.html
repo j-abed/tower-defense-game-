@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Defense Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>Tower Defense</h1>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="stats-panel">
+                    <h2>Game Stats</h2>
+                    <div class="stat-item">
+                        <span class="stat-label">Health:</span>
+                        <span id="health-value" class="stat-value">100</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Currency:</span>
+                        <span id="currency-value" class="stat-value">500</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Wave:</span>
+                        <span id="wave-value" class="stat-value">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Enemies Left:</span>
+                        <span id="enemies-left-value" class="stat-value">0</span>
+                    </div>
+                </div>
+
+                <div class="map-controls">
+                    <h2>Map Settings</h2>
+                    <div class="seed-control">
+                        <label for="seed-input">Seed:</label>
+                        <input type="number" id="seed-input" class="seed-input" placeholder="Random">
+                        <button id="random-seed-btn" class="seed-btn" title="Generate random seed">🎲</button>
+                        <button id="regenerate-btn" class="seed-btn" title="Regenerate map">🔄</button>
+                    </div>
+                    <div class="seed-display">
+                        <span class="stat-label">Current Seed:</span>
+                        <span id="current-seed" class="stat-value">-</span>
+                    </div>
+                </div>
+
+                <div class="tower-selection">
+                    <h2>Select Tower</h2>
+                    <div class="tower-options">
+                        <button class="tower-btn" data-tower="basic" id="tower-basic">
+                            <div class="tower-preview basic-tower"></div>
+                            <div class="tower-info">
+                                <div class="tower-name">Basic Tower</div>
+                                <div class="tower-cost">$50</div>
+                            </div>
+                        </button>
+                        <button class="tower-btn" data-tower="rapid" id="tower-rapid">
+                            <div class="tower-preview rapid-tower"></div>
+                            <div class="tower-info">
+                                <div class="tower-name">Rapid Fire</div>
+                                <div class="tower-cost">$100</div>
+                            </div>
+                        </button>
+                        <button class="tower-btn" data-tower="sniper" id="tower-sniper">
+                            <div class="tower-preview sniper-tower"></div>
+                            <div class="tower-info">
+                                <div class="tower-name">Sniper</div>
+                                <div class="tower-cost">$150</div>
+                            </div>
+                        </button>
+                        <button class="tower-btn" data-tower="cannon" id="tower-cannon">
+                            <div class="tower-preview cannon-tower"></div>
+                            <div class="tower-info">
+                                <div class="tower-name">Cannon</div>
+                                <div class="tower-cost">$200</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="game-controls">
+                    <button id="start-btn" class="control-btn">Start Wave</button>
+                    <button id="pause-btn" class="control-btn">Pause</button>
+                    <button id="fastforward-btn" class="control-btn">Fast Forward (2x)</button>
+                    <button id="upgrade-btn" class="control-btn" disabled>Upgrade Selected</button>
+                    <button id="sell-btn" class="control-btn sell-btn" disabled>Sell Tower</button>
+                </div>
+            </div>
+
+            <div class="game-area">
+                <canvas id="gameCanvas"></canvas>
+                <div id="game-over-overlay" class="overlay hidden">
+                    <div class="overlay-content">
+                        <h2 id="game-over-title">Game Over</h2>
+                        <p id="game-over-message"></p>
+                        <button id="restart-btn" class="control-btn">Restart Game</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="seedrandom.js"></script>
+    <script src="path.js"></script>
+    <script src="particle.js"></script>
+    <script src="enemy.js"></script>
+    <script src="tower.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
+
