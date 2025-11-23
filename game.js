@@ -42,6 +42,26 @@ class Game {
         this.waveCountdown = 0; // Countdown timer between waves
         this.waveCountdownActive = false;
 
+        // Initialize statistics (matching the structure in restart method)
+        this.stats = {
+            totalDamageDealt: 0,
+            totalCurrencyEarned: 0,
+            totalCurrencySpent: 0,
+            towersUpgraded: 0,
+            towersSold: 0,
+            perfectWaves: 0,
+            wavesWithLeaks: 0,
+            averageWaveTime: 0,
+            waveTimes: [],
+            favoriteTowerType: {},
+            totalShots: 0,
+            totalHits: 0,
+            accuracy: 0,
+            startTime: Date.now(),
+            playTime: 0,
+            bossKills: 0
+        };
+
         this.setupCanvas();
         this.setupMinimap();
         this.setupEventListeners();
@@ -62,14 +82,12 @@ class Game {
 
     setupCanvas() {
         const container = this.canvas.parentElement;
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = container.clientHeight;
         
-        // Ensure canvas has valid dimensions
-        if (this.canvas.width === 0 || this.canvas.height === 0) {
-            this.canvas.width = 800;
-            this.canvas.height = 600;
-        }
+        // Force canvas dimensions - don't rely on container
+        this.canvas.width = 1200;
+        this.canvas.height = 800;
+        
+        console.log('Canvas setup:', this.canvas.width, 'x', this.canvas.height);
         
         // Initialize or regenerate path with current seed
         if (!this.mapSeed) {
@@ -78,20 +96,26 @@ class Game {
         
         try {
             this.path = new Path(this.mapSeed, this.canvas.width, this.canvas.height);
+            console.log('Path created with', this.path.waypoints.length, 'waypoints');
             this.updateSeedDisplay();
         } catch (error) {
             console.error('Error initializing path:', error);
             // Fallback to default path
-            this.path = new Path(this.mapSeed || 12345, Math.max(this.canvas.width, 800), Math.max(this.canvas.height, 600));
+            this.path = new Path(this.mapSeed || 12345, 1200, 800);
         }
 
         window.addEventListener('resize', () => {
-            const newWidth = container.clientWidth || 800;
-            const newHeight = container.clientHeight || 600;
+            const newWidth = Math.max(container.clientWidth || 1200, 1200);
+            const newHeight = Math.max(container.clientHeight || 800, 800);
             this.canvas.width = newWidth;
             this.canvas.height = newHeight;
             if (this.path && newWidth > 0 && newHeight > 0) {
-                this.path.setCanvasSize(newWidth, newHeight);
+                if (this.path.setCanvasSize) {
+                    this.path.setCanvasSize(newWidth, newHeight);
+                } else {
+                    // Regenerate path if setCanvasSize doesn't exist
+                    this.path = new Path(this.mapSeed, newWidth, newHeight);
+                }
             }
         });
     }
@@ -528,34 +552,62 @@ class Game {
         
         const previewPanel = document.getElementById('wave-preview');
         if (previewPanel) {
-            document.getElementById('wave-preview-number').textContent = nextWave;
-            document.getElementById('wave-preview-basic').textContent = composition.basic;
-            document.getElementById('wave-preview-fast').textContent = composition.fast;
-            document.getElementById('wave-preview-tank').textContent = composition.tank;
-            document.getElementById('wave-preview-boss').textContent = composition.boss;
-            document.getElementById('wave-preview-flying').textContent = composition.flying;
-            document.getElementById('wave-preview-shielded').textContent = composition.shielded;
-            document.getElementById('wave-preview-regenerating').textContent = composition.regenerating;
-            document.getElementById('wave-preview-splitting').textContent = composition.splitting;
-            document.getElementById('wave-preview-total').textContent = 
-                composition.basic + composition.fast + composition.tank + composition.boss +
-                composition.flying + composition.shielded + composition.regenerating + composition.splitting;
+            const waveNumberEl = document.getElementById('wave-preview-number');
+            if (waveNumberEl) waveNumberEl.textContent = nextWave;
+            
+            // Update individual enemy counts if elements exist
+            const basicEl = document.getElementById('wave-preview-basic');
+            if (basicEl) basicEl.textContent = composition.basic;
+            
+            const fastEl = document.getElementById('wave-preview-fast');
+            if (fastEl) fastEl.textContent = composition.fast;
+            
+            const tankEl = document.getElementById('wave-preview-tank');
+            if (tankEl) tankEl.textContent = composition.tank;
+            
+            const bossEl = document.getElementById('wave-preview-boss');
+            if (bossEl) bossEl.textContent = composition.boss;
+            
+            const flyingEl = document.getElementById('wave-preview-flying');
+            if (flyingEl) flyingEl.textContent = composition.flying;
+            
+            const shieldedEl = document.getElementById('wave-preview-shielded');
+            if (shieldedEl) shieldedEl.textContent = composition.shielded;
+            
+            const regeneratingEl = document.getElementById('wave-preview-regenerating');
+            if (regeneratingEl) regeneratingEl.textContent = composition.regenerating;
+            
+            const splittingEl = document.getElementById('wave-preview-splitting');
+            if (splittingEl) splittingEl.textContent = composition.splitting;
+            
+            // Always update total
+            const totalEl = document.getElementById('wave-preview-total');
+            if (totalEl) {
+                totalEl.textContent = 
+                    composition.basic + composition.fast + composition.tank + composition.boss +
+                    composition.flying + composition.shielded + composition.regenerating + composition.splitting;
+            }
         }
     }
 
     startWave() {
+        console.log('Start Wave called!');
         this.wave++;
         this.waveInProgress = true;
         this.enemiesSpawned = 0;
         this.spawnTimer = 0;
         this.waveLeaks = 0; // Reset leaks for new wave
-        this.waveStartTime = this.lastTime; // Track wave start time
+        this.waveStartTime = this.lastTime || Date.now(); // Track wave start time
         this.waveCountdownActive = false;
 
         // Calculate enemies for this wave
         const baseEnemies = 10;
         const waveMultiplier = Math.floor(this.wave / 3) + 1;
         this.enemiesInWave = baseEnemies + (this.wave * 2) + (waveMultiplier * 5);
+
+        console.log('Wave', this.wave, '- Enemies to spawn:', this.enemiesInWave);
+        console.log('Path exists:', this.path !== null);
+        console.log('Wave in progress:', this.waveInProgress);
 
         document.getElementById('start-btn').disabled = true;
         const progressContainer = document.getElementById('wave-progress-container');
@@ -745,16 +797,47 @@ class Game {
     }
 
     render() {
+        // Ensure canvas has valid dimensions
+        if (this.canvas.width === 0 || this.canvas.height === 0) {
+            this.canvas.width = 1200;
+            this.canvas.height = 800;
+        }
+
+        // Ensure we have a valid context
+        if (!this.ctx) {
+            console.error('Canvas context is null!');
+            return;
+        }
+
         // Apply theme background
         const theme = this.themeSystem.getCurrentTheme();
-        theme.applyToBackground(this.ctx, this.canvas.width, this.canvas.height);
+        if (theme && theme.applyToBackground) {
+            theme.applyToBackground(this.ctx, this.canvas.width, this.canvas.height);
+        } else {
+            // Fallback background
+            this.ctx.fillStyle = '#1a252f';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
 
         // Draw background grid
         this.drawGrid();
 
-        // Draw path with theme
-        const theme = this.themeSystem.getCurrentTheme();
-        this.path.render(this.ctx, this.canvas.width, this.canvas.height, theme);
+        // Draw path with theme (only if path exists)
+        if (this.path && this.path.waypoints && this.path.waypoints.length > 0) {
+            try {
+                this.path.render(this.ctx, this.canvas.width, this.canvas.height, theme);
+            } catch (error) {
+                console.error('Error rendering path:', error);
+                // Draw a simple path as fallback
+                this.drawSimplePath();
+            }
+        } else {
+            console.warn('Path not initialized or has no waypoints');
+            console.log('Path exists:', !!this.path);
+            console.log('Waypoints:', this.path ? this.path.waypoints : 'no path');
+            // Draw a simple path as fallback
+            this.drawSimplePath();
+        }
 
         // Draw towers
         for (const tower of this.towers) {
@@ -852,6 +935,32 @@ class Game {
         overlayGradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
         this.ctx.fillStyle = overlayGradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    drawSimplePath() {
+        if (!this.ctx) return;
+        
+        // Draw a simple path as fallback
+        this.ctx.strokeStyle = '#95a5a6';
+        this.ctx.lineWidth = 50;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.canvas.height / 2);
+        this.ctx.lineTo(this.canvas.width, this.canvas.height / 2);
+        this.ctx.stroke();
+        
+        // Draw start marker
+        this.ctx.fillStyle = '#2ecc71';
+        this.ctx.beginPath();
+        this.ctx.arc(0, this.canvas.height / 2, 15, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw end marker
+        this.ctx.fillStyle = '#e74c3c';
+        this.ctx.beginPath();
+        this.ctx.arc(this.canvas.width, this.canvas.height / 2, 15, 0, Math.PI * 2);
+        this.ctx.fill();
     }
 
     drawTowerPreview(x, y) {
@@ -1745,10 +1854,20 @@ class Game {
 // Initialize game when page loads
 window.addEventListener('load', () => {
     try {
-        new Game();
+        const game = new Game();
+        // Debug: Check if canvas and path are initialized
+        setTimeout(() => {
+            console.log('Canvas dimensions:', game.canvas.width, 'x', game.canvas.height);
+            console.log('Path initialized:', game.path !== null);
+            console.log('Path waypoints:', game.path ? game.path.waypoints.length : 0);
+            if (game.path && game.path.waypoints) {
+                console.log('First waypoint:', game.path.waypoints[0]);
+            }
+        }, 100);
     } catch (error) {
         console.error('Error initializing game:', error);
-        alert('Error loading game. Please refresh the page.');
+        console.error('Stack:', error.stack);
+        alert('Error loading game: ' + error.message + '. Please check console for details.');
     }
 });
 

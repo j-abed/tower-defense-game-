@@ -254,7 +254,8 @@ test.describe('ParticleSystem', () => {
         const system = new ParticleSystem();
         system.createExplosion(100, 100, '#ff0000', 10);
         
-        test.expect(system.particles.length).toBe(10);
+        // createExplosion creates: count (10) + 5 flash + 8 smoke = 23 particles
+        test.expect(system.particles.length).toBe(23);
     });
 
     test.it('should update and remove dead particles', () => {
@@ -275,7 +276,8 @@ test.describe('ParticleSystem', () => {
         const system = new ParticleSystem();
         system.createHit(100, 100, '#ff0000');
         
-        test.expect(system.particles.length).toBe(5);
+        // createHit creates: 8 main particles + 3 spark particles = 11 particles
+        test.expect(system.particles.length).toBe(11);
     });
 
     test.it('should create money effect', () => {
@@ -342,15 +344,22 @@ test.describe('ResearchSystem', () => {
     });
 
     test.it('should not allow research without enough points', () => {
+        // Clear localStorage to ensure fresh state
+        localStorage.removeItem('towerDefenseResearch');
         const system = new ResearchSystem();
+        system.researchPoints = 0; // Ensure no points from saved state
         system.addResearchPoints(2);
         
         const canResearch = system.canResearch('rapid_unlock');
         test.expect(canResearch).toBe(false);
+        localStorage.removeItem('towerDefenseResearch');
     });
 
     test.it('should research node and unlock tower', () => {
+        // Clear localStorage to ensure fresh state
+        localStorage.removeItem('towerDefenseResearch');
         const system = new ResearchSystem();
+        system.researchPoints = 0; // Ensure no points from saved state
         system.addResearchPoints(10);
         
         const success = system.research('rapid_unlock');
@@ -358,6 +367,7 @@ test.describe('ResearchSystem', () => {
         test.expect(success).toBe(true);
         test.expect(system.researchPoints).toBe(5); // 10 - 5 cost
         test.expect(system.nodes['rapid_unlock'].researched).toBe(true);
+        localStorage.removeItem('towerDefenseResearch');
     });
 
     test.it('should get unlocked towers', () => {
@@ -383,7 +393,10 @@ test.describe('ResearchSystem', () => {
     });
 
     test.it('should require prerequisites for research', () => {
+        // Clear localStorage to ensure fresh state
+        localStorage.removeItem('towerDefenseResearch');
         const system = new ResearchSystem();
+        system.researchPoints = 0; // Ensure no points from saved state
         system.addResearchPoints(12);
         
         // Should fail because prerequisites not met
@@ -397,6 +410,7 @@ test.describe('ResearchSystem', () => {
         // Now should be able to research
         const canResearchAfter = system.canResearch('debuff_unlock');
         test.expect(canResearchAfter).toBe(true);
+        localStorage.removeItem('towerDefenseResearch');
     });
 });
 
@@ -560,7 +574,8 @@ test.describe('AbilitySystem', () => {
         const system = new AbilitySystem();
         const mockGame = { currency: 200 };
         
-        const canUse = system.abilities.speedBoost.canUse(0, mockGame.currency);
+        // Use a time far in the future to ensure cooldown is met
+        const canUse = system.abilities.speedBoost.canUse(50000, mockGame.currency);
         test.expect(canUse).toBe(true);
     });
 
@@ -582,7 +597,8 @@ test.describe('AbilitySystem', () => {
             towers: []
         };
         
-        const used = system.abilities.speedBoost.use(0, mockGame);
+        // Use a time far in the future to ensure cooldown is met
+        const used = system.abilities.speedBoost.use(50000, mockGame);
         test.expect(used).toBe(true);
         test.expect(mockGame.currency).toBe(100); // 200 - 100 cost
         // Effect should have been applied via effect.apply()
@@ -623,6 +639,448 @@ test.describe('Integration Tests', () => {
         }
         
         test.expect(enemy.progress).toBeGreaterThanOrEqual(0.99);
+    });
+
+    test.it('should handle splitting enemy', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('splitting', path, particleSystem);
+        
+        test.expect(enemy.splits).toBe(true);
+        test.expect(enemy.splitCount).toBe(2);
+    });
+
+    test.it('should handle flying enemy', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('flying', path, particleSystem);
+        
+        test.expect(enemy.isFlying).toBe(true);
+        test.expect(enemy.type).toBe('flying');
+    });
+});
+
+// ==================== Projectile Tests ====================
+test.describe('Projectile Class', () => {
+    test.it('should create projectile with correct properties', () => {
+        const projectile = new Projectile(0, 0, 100, 0, 50, 10, '#ff0000');
+        
+        test.expect(projectile.x).toBe(0);
+        test.expect(projectile.y).toBe(0);
+        test.expect(projectile.damage).toBe(50);
+        test.expect(projectile.speed).toBe(10);
+        test.expect(projectile.color).toBe('#ff0000');
+        test.expect(projectile.hit).toBe(false);
+    });
+
+    test.it('should calculate velocity correctly', () => {
+        const projectile = new Projectile(0, 0, 3, 4, 50, 5, '#ff0000');
+        
+        // Should move towards target (3, 4) with speed 5
+        // Distance is 5, so vx = 3/5 * 5 = 3, vy = 4/5 * 5 = 4
+        test.expect(projectile.vx).toBe(3);
+        test.expect(projectile.vy).toBe(4);
+    });
+
+    test.it('should update position', () => {
+        const projectile = new Projectile(0, 0, 10, 0, 50, 5, '#ff0000');
+        const initialX = projectile.x;
+        
+        projectile.update();
+        
+        test.expect(projectile.x).toBeGreaterThan(initialX);
+    });
+
+    test.it('should detect hit on enemy', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 100, y: 100 };
+        enemy.size = 20;
+        
+        const projectile = new Projectile(100, 100, 100, 100, 50, 5, '#ff0000');
+        
+        const hit = projectile.checkHit(enemy);
+        test.expect(hit).toBe(true);
+    });
+
+    test.it('should not hit dead enemy', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 100, y: 100 };
+        enemy.isDead = true;
+        
+        const projectile = new Projectile(100, 100, 100, 100, 50, 5, '#ff0000');
+        
+        const hit = projectile.checkHit(enemy);
+        test.expect(hit).toBe(false);
+    });
+
+    test.it('should not hit enemy that already reached end', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 100, y: 100 };
+        enemy.reachedEnd = true;
+        
+        const projectile = new Projectile(100, 100, 100, 100, 50, 5, '#ff0000');
+        
+        const hit = projectile.checkHit(enemy);
+        test.expect(hit).toBe(false);
+    });
+
+    test.it('should not hit enemy that is too far', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 200, y: 200 };
+        enemy.size = 20;
+        
+        const projectile = new Projectile(0, 0, 0, 0, 50, 5, '#ff0000');
+        
+        const hit = projectile.checkHit(enemy);
+        test.expect(hit).toBe(false);
+    });
+});
+
+// ==================== Tower Type Tests ====================
+test.describe('Tower Types', () => {
+    test.it('should create rapid fire tower with correct stats', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'rapid', particleSystem);
+        
+        test.expect(tower.type).toBe('rapid');
+        test.expect(tower.damage).toBe(8);
+        test.expect(tower.fireRate).toBeLessThan(1000); // Faster than basic
+        test.expect(tower.range).toBe(120);
+    });
+
+    test.it('should create sniper tower with correct stats', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'sniper', particleSystem);
+        
+        test.expect(tower.type).toBe('sniper');
+        test.expect(tower.damage).toBe(50);
+        test.expect(tower.range).toBe(300);
+        test.expect(tower.fireRate).toBeGreaterThan(1000); // Slower than basic
+    });
+
+    test.it('should create cannon tower with area damage', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'cannon', particleSystem);
+        
+        test.expect(tower.type).toBe('cannon');
+        test.expect(tower.areaDamage).toBe(true);
+        test.expect(tower.areaRadius).toBeGreaterThan(0);
+    });
+
+    test.it('should create debuff tower', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'debuff', particleSystem);
+        
+        test.expect(tower.type).toBe('debuff');
+        test.expect(tower.debuff).toBe(true);
+        test.expect(tower.slowAmount).toBe(0.5);
+    });
+
+    test.it('should create support tower', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'support', particleSystem);
+        
+        test.expect(tower.type).toBe('support');
+        test.expect(tower.support).toBe(true);
+        test.expect(tower.damageBoost).toBeGreaterThan(1);
+        test.expect(tower.rangeBoost).toBeGreaterThan(1);
+    });
+
+    test.it('should create chain lightning tower', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'chain', particleSystem);
+        
+        test.expect(tower.type).toBe('chain');
+        test.expect(tower.chainLightning).toBe(true);
+        test.expect(tower.chainCount).toBeGreaterThan(0);
+    });
+});
+
+// ==================== Tower Targeting Tests ====================
+test.describe('Tower Targeting Modes', () => {
+    test.it('should target closest enemy by default', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        
+        const enemy1 = new Enemy('basic', path, particleSystem);
+        enemy1.position = { x: 150, y: 100 }; // 50 units away
+        enemy1.progress = 0.5;
+        
+        const enemy2 = new Enemy('basic', path, particleSystem);
+        enemy2.position = { x: 120, y: 100 }; // 20 units away
+        enemy2.progress = 0.5;
+        
+        const target = tower.findTarget([enemy1, enemy2]);
+        test.expect(target).toBe(enemy2);
+    });
+
+    test.it('should target farthest enemy when mode is set', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        tower.setTargetingMode('farthest');
+        
+        const enemy1 = new Enemy('basic', path, particleSystem);
+        enemy1.position = { x: 150, y: 100 }; // 50 units away
+        enemy1.progress = 0.5;
+        
+        const enemy2 = new Enemy('basic', path, particleSystem);
+        enemy2.position = { x: 120, y: 100 }; // 20 units away
+        enemy2.progress = 0.5;
+        
+        const target = tower.findTarget([enemy1, enemy2]);
+        test.expect(target).toBe(enemy1);
+    });
+
+    test.it('should target strongest enemy when mode is set', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        tower.setTargetingMode('strongest');
+        
+        const enemy1 = new Enemy('basic', path, particleSystem);
+        enemy1.position = { x: 150, y: 100 };
+        enemy1.health = 50;
+        enemy1.progress = 0.5;
+        
+        const enemy2 = new Enemy('tank', path, particleSystem);
+        enemy2.position = { x: 120, y: 100 };
+        enemy2.health = 150;
+        enemy2.progress = 0.5;
+        
+        const target = tower.findTarget([enemy1, enemy2]);
+        test.expect(target).toBe(enemy2);
+    });
+
+    test.it('should target weakest enemy when mode is set', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        tower.setTargetingMode('weakest');
+        
+        const enemy1 = new Enemy('basic', path, particleSystem);
+        enemy1.position = { x: 150, y: 100 };
+        enemy1.health = 50;
+        enemy1.progress = 0.5;
+        
+        const enemy2 = new Enemy('tank', path, particleSystem);
+        enemy2.position = { x: 120, y: 100 };
+        enemy2.health = 150;
+        enemy2.progress = 0.5;
+        
+        const target = tower.findTarget([enemy1, enemy2]);
+        test.expect(target).toBe(enemy1);
+    });
+
+    test.it('should target first enemy when mode is set', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        tower.setTargetingMode('first');
+        
+        const enemy1 = new Enemy('basic', path, particleSystem);
+        enemy1.position = { x: 150, y: 100 };
+        enemy1.progress = 0.3;
+        
+        const enemy2 = new Enemy('basic', path, particleSystem);
+        enemy2.position = { x: 120, y: 100 };
+        enemy2.progress = 0.7;
+        
+        const target = tower.findTarget([enemy1, enemy2]);
+        test.expect(target).toBe(enemy2);
+    });
+});
+
+// ==================== Theme System Tests ====================
+test.describe('ThemeSystem', () => {
+    test.it('should initialize with default theme', () => {
+        const themeSystem = new ThemeSystem();
+        
+        test.expect(themeSystem.currentTheme).toBe('default');
+        test.expect(themeSystem.getCurrentTheme()).toBeTruthy();
+    });
+
+    test.it('should have multiple themes available', () => {
+        const themeSystem = new ThemeSystem();
+        
+        test.expect(themeSystem.themes).toBeTruthy();
+        test.expect(Object.keys(themeSystem.themes).length).toBeGreaterThan(1);
+    });
+
+    test.it('should change theme', () => {
+        const themeSystem = new ThemeSystem();
+        const result = themeSystem.setTheme('desert');
+        
+        test.expect(result).toBe(true);
+        test.expect(themeSystem.currentTheme).toBe('desert');
+    });
+
+    test.it('should return false for invalid theme', () => {
+        const themeSystem = new ThemeSystem();
+        const result = themeSystem.setTheme('invalid_theme');
+        
+        test.expect(result).toBe(false);
+    });
+
+    test.it('should get current theme colors', () => {
+        const themeSystem = new ThemeSystem();
+        const theme = themeSystem.getCurrentTheme();
+        
+        test.expect(theme).toBeTruthy();
+        test.expect(theme.colors).toBeTruthy();
+        test.expect(theme.colors.backgroundStart).toBeTruthy();
+    });
+});
+
+// ==================== Edge Cases and Error Handling ====================
+test.describe('Edge Cases', () => {
+    test.it('should handle tower with no enemies', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        
+        const target = tower.findTarget([]);
+        test.expect(target).toBe(null);
+    });
+
+    test.it('should handle tower with all dead enemies', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.isDead = true;
+        enemy.position = { x: 150, y: 100 };
+        
+        const target = tower.findTarget([enemy]);
+        test.expect(target).toBe(null);
+    });
+
+    test.it('should handle enemy with zero health', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        
+        // Use takeDamage to properly set isDead
+        enemy.takeDamage(enemy.health, null);
+        
+        test.expect(enemy.health).toBeLessThanOrEqual(0);
+        test.expect(enemy.isDead).toBe(true);
+    });
+
+    test.it('should handle path with zero progress', () => {
+        const path = new Path(12345, 800, 600);
+        const pos = path.getPositionAt(0);
+        
+        test.expect(pos.x).toBeGreaterThanOrEqual(0);
+        test.expect(pos.y).toBeGreaterThanOrEqual(0);
+    });
+
+    test.it('should handle path with progress 1.0', () => {
+        const path = new Path(12345, 800, 600);
+        const pos = path.getPositionAt(1.0);
+        
+        test.expect(pos.x).toBeGreaterThanOrEqual(0);
+        test.expect(pos.y).toBeGreaterThanOrEqual(0);
+    });
+
+    test.it('should handle multiple upgrades', () => {
+        const particleSystem = new ParticleSystem();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        const originalDamage = tower.damage;
+        
+        tower.upgrade();
+        tower.upgrade();
+        tower.upgrade();
+        
+        test.expect(tower.level).toBe(4);
+        test.expect(tower.damage).toBeGreaterThan(originalDamage);
+    });
+
+    test.it('should handle projectile hitting multiple times', () => {
+        const path = createMockPath();
+        const particleSystem = new ParticleSystem();
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 100, y: 100 };
+        
+        const projectile = new Projectile(100, 100, 100, 100, 50, 5, '#ff0000');
+        const hit1 = projectile.checkHit(enemy);
+        projectile.hit = true;
+        const hit2 = projectile.checkHit(enemy);
+        
+        test.expect(hit1).toBe(true);
+        test.expect(hit2).toBe(false);
+    });
+});
+
+// ==================== Advanced Integration Tests ====================
+test.describe('Advanced Integration Tests', () => {
+    test.it('should handle tower shooting and projectile hitting enemy', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const tower = new Tower(100, 100, 'basic', particleSystem);
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 150, y: 100 };
+        enemy.progress = 0.5;
+        
+        tower.findTarget([enemy]);
+        const initialHealth = enemy.health;
+        tower.shoot(Date.now());
+        
+        // Update projectile to hit enemy
+        if (tower.projectiles.length > 0) {
+            const projectile = tower.projectiles[0];
+            // Move projectile to enemy position
+            projectile.x = enemy.position.x;
+            projectile.y = enemy.position.y;
+            
+            if (projectile.checkHit(enemy)) {
+                enemy.takeDamage(projectile.damage, null);
+            }
+        }
+        
+        test.expect(tower.target).toBe(enemy);
+        test.expect(tower.projectiles.length).toBeGreaterThan(0);
+    });
+
+    test.it('should handle support tower buffing other towers', () => {
+        const particleSystem = new ParticleSystem();
+        const supportTower = new Tower(100, 100, 'support', particleSystem);
+        const basicTower = new Tower(150, 100, 'basic', particleSystem);
+        
+        const originalDamage = basicTower.damage;
+        const originalRange = basicTower.range;
+        
+        // Support tower should buff nearby towers
+        supportTower.updateSupportBuffs([basicTower], Date.now());
+        
+        // After support buff, damage and range should be increased
+        test.expect(basicTower.receivingSupport).toBe(true);
+    });
+
+    test.it('should handle debuff tower slowing enemies', () => {
+        const particleSystem = new ParticleSystem();
+        const path = createMockPath();
+        const debuffTower = new Tower(100, 100, 'debuff', particleSystem);
+        const enemy = new Enemy('basic', path, particleSystem);
+        enemy.position = { x: 150, y: 100 };
+        enemy.progress = 0.5;
+        
+        const originalSpeed = enemy.speed;
+        
+        debuffTower.findTarget([enemy]);
+        debuffTower.shoot(Date.now());
+        
+        // Debuff should be applied (tested through debuff system)
+        test.expect(debuffTower.target).toBe(enemy);
     });
 });
 

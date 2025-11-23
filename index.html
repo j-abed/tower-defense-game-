@@ -10,82 +10,64 @@
     <div class="game-container">
         <div class="header">
             <h1>Tower Defense</h1>
+            <!-- Top stats bar -->
+            <div class="top-stats-bar">
+                <div class="top-stat">
+                    <span class="top-stat-label">❤️ Health:</span>
+                    <span id="health-value" class="top-stat-value">100</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-label">💰 Currency:</span>
+                    <span id="currency-value" class="top-stat-value">500</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-label">🌊 Wave:</span>
+                    <span id="wave-value" class="top-stat-value">1</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-label">👾 Enemies:</span>
+                    <span id="enemies-left-value" class="top-stat-value">0</span>
+                </div>
+                <div class="top-stat">
+                    <span class="top-stat-label">🔬 Research:</span>
+                    <span id="research-points" class="top-stat-value">0</span>
+                </div>
+            </div>
         </div>
         
         <div class="main-content">
             <div class="sidebar">
-                <div class="stats-panel">
-                    <h2>Game Stats</h2>
-                    <div class="stat-item">
-                        <span class="stat-label">Health:</span>
-                        <span id="health-value" class="stat-value">100</span>
+
+                <div class="research-panel" id="research-panel" style="display: none;">
+                    <h2>Tech Tree</h2>
+                    <div id="research-content">
+                        <!-- Research nodes will be populated by JavaScript -->
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Currency:</span>
-                        <span id="currency-value" class="stat-value">500</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Wave:</span>
-                        <span id="wave-value" class="stat-value">1</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Enemies Left:</span>
-                        <span id="enemies-left-value" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Research Points:</span>
-                        <span id="research-points" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-item" style="border-top: 2px solid #34495e; margin-top: 8px; padding-top: 8px;">
-                        <span class="stat-label">High Wave:</span>
-                        <span id="high-score-wave" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">High Kills:</span>
-                        <span id="high-score-kills" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Best Score:</span>
-                        <span id="high-score-score" class="stat-value">0</span>
-                    </div>
+                    <button id="close-research-btn" class="control-btn" style="margin-top: 10px;">Close</button>
                 </div>
 
-                <div class="map-controls">
-                    <h2>Map Settings</h2>
-                    <div class="seed-control">
-                        <label for="seed-input">Seed:</label>
-                        <input type="number" id="seed-input" class="seed-input" placeholder="Random">
-                        <button id="random-seed-btn" class="seed-btn" title="Generate random seed">🎲</button>
-                        <button id="regenerate-btn" class="seed-btn" title="Regenerate map">🔄</button>
+                <div class="achievements-panel" id="achievements-panel" style="display: none;">
+                    <h2>Achievements</h2>
+                    <div id="achievements-content">
+                        <!-- Achievements will be populated by JavaScript -->
                     </div>
-                    <div class="seed-display">
-                        <span class="stat-label">Current Seed:</span>
-                        <span id="current-seed" class="stat-value">-</span>
-                    </div>
+                    <button id="close-achievements-btn" class="control-btn" style="margin-top: 10px;">Close</button>
                 </div>
 
-                <div class="difficulty-controls">
-                    <h2>Difficulty</h2>
-                    <select id="difficulty-select" class="difficulty-select">
-                        <option value="easy">Easy</option>
-                        <option value="normal" selected>Normal</option>
-                        <option value="hard">Hard</option>
-                        <option value="nightmare">Nightmare</option>
-                    </select>
-                    <div class="difficulty-description" id="difficulty-description">
-                        Standard difficulty with balanced gameplay.
+                <div class="statistics-panel" id="statistics-panel" style="display: none;">
+                    <h2>Statistics</h2>
+                    <div id="statistics-content">
+                        <!-- Statistics will be populated by JavaScript -->
                     </div>
+                    <button id="close-statistics-btn" class="control-btn" style="margin-top: 10px;">Close</button>
                 </div>
 
-                <div class="theme-controls">
-                    <h2>Theme</h2>
-                    <select id="theme-select" class="difficulty-select">
-                        <option value="default" selected>Default</option>
-                        <option value="desert">Desert</option>
-                        <option value="snow">Snow</option>
-                        <option value="space">Space</option>
-                        <option value="forest">Forest</option>
-                    </select>
+                <div class="campaign-panel" id="campaign-panel" style="display: none;">
+                    <h2>Campaign Mode</h2>
+                    <div id="campaign-content">
+                        <!-- Campaign levels will be populated by JavaScript -->
+                    </div>
+                    <button id="close-campaign-btn" class="control-btn" style="margin-top: 10px;">Close</button>
                 </div>
 
                 <div class="tower-info-panel" id="tower-info-panel" style="display: none;">
@@ -136,184 +118,225 @@
                     </div>
                 </div>
 
-                <div class="tower-selection">
-                    <h2>Select Tower</h2>
-                    <div class="tower-options">
-                        <button class="tower-btn" data-tower="basic" id="tower-basic" title="Basic Tower - Press 1">
-                            <div class="tower-preview basic-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Basic Tower</div>
-                                <div class="tower-cost">$50</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="rapid" id="tower-rapid" title="Rapid Fire - Press 2">
-                            <div class="tower-preview rapid-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Rapid Fire</div>
-                                <div class="tower-cost">$100</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="sniper" id="tower-sniper" title="Sniper - Press 3">
-                            <div class="tower-preview sniper-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Sniper</div>
-                                <div class="tower-cost">$150</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="cannon" id="tower-cannon" title="Cannon - Press 4">
-                            <div class="tower-preview cannon-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Cannon</div>
-                                <div class="tower-cost">$200</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="debuff" id="tower-debuff" title="Debuff Tower - Slows enemies">
-                            <div class="tower-preview debuff-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Debuff</div>
-                                <div class="tower-cost">$175</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="support" id="tower-support" title="Support Tower - Boosts nearby towers">
-                            <div class="tower-preview support-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Support</div>
-                                <div class="tower-cost">$150</div>
-                            </div>
-                        </button>
-                        <button class="tower-btn" data-tower="chain" id="tower-chain" title="Chain Lightning - Damage chains between enemies">
-                            <div class="tower-preview chain-tower"></div>
-                            <div class="tower-info">
-                                <div class="tower-name">Chain</div>
-                                <div class="tower-cost">$225</div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="wave-preview" id="wave-preview">
-                    <h2>Next Wave Preview</h2>
-                    <div id="wave-progress-container" style="margin-bottom: 10px; display: none;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span class="stat-label">Wave Progress:</span>
-                            <span id="wave-progress-text" class="stat-value">0%</span>
-                        </div>
-                        <div style="background: #34495e; border-radius: 5px; height: 20px; overflow: hidden;">
-                            <div id="wave-progress-bar" style="background: linear-gradient(90deg, #2ecc71, #27ae60); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
-                        </div>
-                    </div>
-                    <div id="wave-countdown" style="display: none; text-align: center; padding: 8px; background: #34495e; border-radius: 5px; margin-bottom: 10px;">
-                        <span class="stat-label">Next Wave In: </span>
-                        <span id="wave-countdown-value" class="stat-value" style="color: #f39c12;">-</span>
-                    </div>
-                    <div class="wave-preview-content">
-                        <div class="stat-item">
-                            <span class="stat-label">Wave:</span>
-                            <span id="wave-preview-number" class="stat-value">1</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Basic:</span>
-                            <span id="wave-preview-basic" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Fast:</span>
-                            <span id="wave-preview-fast" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Tank:</span>
-                            <span id="wave-preview-tank" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Boss:</span>
-                            <span id="wave-preview-boss" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Flying:</span>
-                            <span id="wave-preview-flying" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Shielded:</span>
-                            <span id="wave-preview-shielded" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Regen:</span>
-                            <span id="wave-preview-regenerating" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Splitting:</span>
-                            <span id="wave-preview-splitting" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Total:</span>
-                            <span id="wave-preview-total" class="stat-value">0</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="abilities-panel">
-                    <h2>Special Abilities</h2>
-                    <div class="abilities-grid">
-                        <button id="ability-speed" class="ability-btn" title="Speed Boost - 2x fire rate for 10s">
-                            <div class="ability-name">Speed Boost</div>
-                            <div class="ability-cost">$100</div>
-                        </button>
-                        <button id="ability-freeze" class="ability-btn" title="Freeze Wave - Slow all enemies for 5s">
-                            <div class="ability-name">Freeze Wave</div>
-                            <div class="ability-cost">$150</div>
-                        </button>
-                        <button id="ability-airstrike" class="ability-btn" title="Airstrike - Click to target area damage">
-                            <div class="ability-name">Airstrike</div>
-                            <div class="ability-cost">$200</div>
-                        </button>
-                        <button id="ability-shield" class="ability-btn" title="Shield - Prevent damage for 8s">
-                            <div class="ability-name">Shield</div>
-                            <div class="ability-cost">$250</div>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="research-panel" id="research-panel" style="display: none;">
-                    <h2>Tech Tree</h2>
-                    <div id="research-content">
-                        <!-- Research nodes will be populated by JavaScript -->
-                    </div>
-                    <button id="close-research-btn" class="control-btn" style="margin-top: 10px;">Close</button>
-                </div>
-
-                <div class="achievements-panel" id="achievements-panel" style="display: none;">
-                    <h2>Achievements</h2>
-                    <div id="achievements-content">
-                        <!-- Achievements will be populated by JavaScript -->
-                    </div>
-                    <button id="close-achievements-btn" class="control-btn" style="margin-top: 10px;">Close</button>
-                </div>
-
-                <div class="statistics-panel" id="statistics-panel" style="display: none;">
-                    <h2>Statistics</h2>
-                    <div id="statistics-content">
-                        <!-- Statistics will be populated by JavaScript -->
-                    </div>
-                    <button id="close-statistics-btn" class="control-btn" style="margin-top: 10px;">Close</button>
-                </div>
-
-                <div class="campaign-panel" id="campaign-panel" style="display: none;">
-                    <h2>Campaign Mode</h2>
-                    <div id="campaign-content">
-                        <!-- Campaign levels will be populated by JavaScript -->
-                    </div>
-                    <button id="close-campaign-btn" class="control-btn" style="margin-top: 10px;">Close</button>
-                </div>
-
                 <div class="game-controls">
-                    <button id="campaign-btn" class="control-btn">Campaign</button>
-                    <button id="research-btn" class="control-btn">Tech Tree</button>
-                    <button id="achievements-btn" class="control-btn">Achievements</button>
-                    <button id="statistics-btn" class="control-btn">Statistics</button>
-                    <button id="start-btn" class="control-btn" title="Start Wave - Press Enter">Start Wave</button>
-                    <button id="pause-btn" class="control-btn" title="Pause/Resume - Press Space">Pause</button>
-                    <button id="fastforward-btn" class="control-btn">Fast Forward (3x)</button>
-                    <button id="upgrade-btn" class="control-btn" disabled title="Upgrade Selected - Press U">Upgrade Selected</button>
-                    <button id="sell-btn" class="control-btn sell-btn" disabled title="Sell Tower - Press S">Sell Tower</button>
+                    <button id="start-btn" class="control-btn" title="Start Wave - Press Enter" style="background: #2ecc71; font-weight: bold; margin-bottom: 8px;">▶ Start Wave</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
+                        <button id="pause-btn" class="control-btn" title="Pause/Resume - Press Space">⏸ Pause</button>
+                        <button id="fastforward-btn" class="control-btn">⏩ 3x</button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
+                        <button id="upgrade-btn" class="control-btn" disabled title="Upgrade Selected - Press U">⬆ Upgrade</button>
+                        <button id="sell-btn" class="control-btn sell-btn" disabled title="Sell Tower - Press S">💰 Sell</button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <button id="research-btn" class="control-btn" style="font-size: 0.85em;">🔬 Tech</button>
+                        <button id="achievements-btn" class="control-btn" style="font-size: 0.85em;">🏆 Achieve</button>
+                        <button id="statistics-btn" class="control-btn" style="font-size: 0.85em;">📊 Stats</button>
+                        <button id="campaign-btn" class="control-btn" style="font-size: 0.85em;">🎯 Campaign</button>
+                    </div>
+                </div>
+
+                <!-- Tabbed interface for other sections -->
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab active" data-tab="towers">Towers</button>
+                    <button class="sidebar-tab" data-tab="settings">Settings</button>
+                </div>
+
+                <!-- Towers Tab -->
+                <div class="sidebar-content active" data-content="towers">
+                    <div class="tower-selection">
+                        <h2 style="margin-top: 0;">Select Tower</h2>
+                        <div class="tower-options">
+                            <button class="tower-btn" data-tower="basic" id="tower-basic" title="Basic Tower - Press 1">
+                                <div class="tower-preview basic-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Basic Tower</div>
+                                    <div class="tower-cost">$50</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="rapid" id="tower-rapid" title="Rapid Fire - Press 2">
+                                <div class="tower-preview rapid-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Rapid Fire</div>
+                                    <div class="tower-cost">$100</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="sniper" id="tower-sniper" title="Sniper - Press 3">
+                                <div class="tower-preview sniper-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Sniper</div>
+                                    <div class="tower-cost">$150</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="cannon" id="tower-cannon" title="Cannon - Press 4">
+                                <div class="tower-preview cannon-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Cannon</div>
+                                    <div class="tower-cost">$200</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="debuff" id="tower-debuff" title="Debuff Tower - Slows enemies">
+                                <div class="tower-preview debuff-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Debuff</div>
+                                    <div class="tower-cost">$175</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="support" id="tower-support" title="Support Tower - Boosts nearby towers">
+                                <div class="tower-preview support-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Support</div>
+                                    <div class="tower-cost">$150</div>
+                                </div>
+                            </button>
+                            <button class="tower-btn" data-tower="chain" id="tower-chain" title="Chain Lightning - Damage chains between enemies">
+                                <div class="tower-preview chain-tower"></div>
+                                <div class="tower-info">
+                                    <div class="tower-name">Chain</div>
+                                    <div class="tower-cost">$225</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="abilities-panel">
+                        <h2>Special Abilities</h2>
+                        <div class="abilities-grid">
+                            <button id="ability-speed" class="ability-btn" title="Speed Boost - 2x fire rate for 10s">
+                                <div class="ability-name">Speed Boost</div>
+                                <div class="ability-cost">$100</div>
+                            </button>
+                            <button id="ability-freeze" class="ability-btn" title="Freeze Wave - Slow all enemies for 5s">
+                                <div class="ability-name">Freeze Wave</div>
+                                <div class="ability-cost">$150</div>
+                            </button>
+                            <button id="ability-airstrike" class="ability-btn" title="Airstrike - Click to target area damage">
+                                <div class="ability-name">Airstrike</div>
+                                <div class="ability-cost">$200</div>
+                            </button>
+                            <button id="ability-shield" class="ability-btn" title="Shield - Prevent damage for 8s">
+                                <div class="ability-name">Shield</div>
+                                <div class="ability-cost">$250</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="wave-preview" id="wave-preview">
+                        <h2>Next Wave</h2>
+                        <div id="wave-progress-container" style="margin-bottom: 10px; display: none;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span class="stat-label">Progress:</span>
+                                <span id="wave-progress-text" class="stat-value">0%</span>
+                            </div>
+                            <div style="background: #34495e; border-radius: 5px; height: 20px; overflow: hidden;">
+                                <div id="wave-progress-bar" style="background: linear-gradient(90deg, #2ecc71, #27ae60); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                        <div id="wave-countdown" style="display: none; text-align: center; padding: 8px; background: #34495e; border-radius: 5px; margin-bottom: 10px;">
+                            <span class="stat-label">Next Wave In: </span>
+                            <span id="wave-countdown-value" class="stat-value" style="color: #f39c12;">-</span>
+                        </div>
+                        <div class="wave-preview-content">
+                            <div class="stat-item">
+                                <span class="stat-label">Wave:</span>
+                                <span id="wave-preview-number" class="stat-value">1</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total:</span>
+                                <span id="wave-preview-total" class="stat-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="sidebar-content" data-content="settings">
+                    <div class="map-controls">
+                        <h2 style="margin-top: 0;">Map Settings</h2>
+                        <div class="seed-control">
+                            <label for="seed-input">Seed:</label>
+                            <input type="number" id="seed-input" class="seed-input" placeholder="Random">
+                            <button id="random-seed-btn" class="seed-btn" title="Generate random seed">🎲</button>
+                            <button id="regenerate-btn" class="seed-btn" title="Regenerate map">🔄</button>
+                        </div>
+                        <div class="seed-display">
+                            <span class="stat-label">Current Seed:</span>
+                            <span id="current-seed" class="stat-value">-</span>
+                        </div>
+                    </div>
+
+                    <div class="difficulty-controls">
+                        <h2>Difficulty</h2>
+                        <select id="difficulty-select" class="difficulty-select">
+                            <option value="easy">Easy</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="hard">Hard</option>
+                            <option value="nightmare">Nightmare</option>
+                        </select>
+                        <div class="difficulty-description" id="difficulty-description">
+                            Standard difficulty with balanced gameplay.
+                        </div>
+                    </div>
+
+                    <div class="theme-controls">
+                        <h2>Theme</h2>
+                        <select id="theme-select" class="difficulty-select">
+                            <option value="default" selected>Default</option>
+                            <option value="desert">Desert</option>
+                            <option value="snow">Snow</option>
+                            <option value="space">Space</option>
+                            <option value="forest">Forest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tower Info Panel (shown when tower selected) -->
+                <div class="tower-info-panel" id="tower-info-panel" style="display: none;">
+                    <h2>Tower Stats</h2>
+                    <div id="tower-stats-content">
+                        <div class="stat-item">
+                            <span class="stat-label">Name:</span>
+                            <span id="tower-stat-name" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Level:</span>
+                            <span id="tower-stat-level" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Damage:</span>
+                            <span id="tower-stat-damage" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Range:</span>
+                            <span id="tower-stat-range" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fire Rate:</span>
+                            <span id="tower-stat-firerate" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">DPS:</span>
+                            <span id="tower-stat-dps" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Kills:</span>
+                            <span id="tower-stat-kills" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Upgrade Cost:</span>
+                            <span id="tower-stat-upgrade" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item" style="border-top: 2px solid #34495e; margin-top: 8px; padding-top: 8px;">
+                            <span class="stat-label">Targeting:</span>
+                            <select id="tower-targeting-select" class="tower-targeting-select">
+                                <option value="closest">Closest</option>
+                                <option value="farthest">Farthest</option>
+                                <option value="strongest">Strongest</option>
+                                <option value="weakest">Weakest</option>
+                                <option value="first">First</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -343,6 +366,30 @@
     <script src="enemy.js"></script>
     <script src="tower.js"></script>
     <script src="game.js"></script>
+    <script>
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.sidebar-tab');
+            const contents = document.querySelectorAll('.sidebar-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const targetContent = document.querySelector(`.sidebar-content[data-content="${targetTab}"]`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

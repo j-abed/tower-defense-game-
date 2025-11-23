@@ -147,6 +147,31 @@ class TestFramework {
                 if (actual < expected) {
                     throw new Error(`Expected ${actual} to be greater than or equal to ${expected}`);
                 }
+            },
+            toBeLessThanOrEqual: (expected) => {
+                if (actual > expected) {
+                    throw new Error(`Expected ${actual} to be less than or equal to ${expected}`);
+                }
+            },
+            toBeCloseTo: (expected, precision = 2) => {
+                const diff = Math.abs(actual - expected);
+                const threshold = Math.pow(10, -precision);
+                if (diff > threshold) {
+                    throw new Error(`Expected ${actual} to be close to ${expected} (within ${threshold})`);
+                }
+            },
+            toThrow: (expectedError) => {
+                try {
+                    if (typeof actual !== 'function') {
+                        throw new Error('Expected a function to test for throwing');
+                    }
+                    actual();
+                    throw new Error(`Expected function to throw but it didn't`);
+                } catch (error) {
+                    if (expectedError && !error.message.includes(expectedError)) {
+                        throw new Error(`Expected error to contain "${expectedError}" but got "${error.message}"`);
+                    }
+                }
             }
         };
     }
