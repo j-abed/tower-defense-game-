@@ -58,7 +58,49 @@ The game features procedurally generated maps with seed-based randomization:
 
 ## Running the Game
 
-Simply open `index.html` in a web browser. No build process or dependencies required!
+### Quick Start (Recommended)
+
+**On macOS/Linux:**
+```bash
+./run.sh
+```
+Then open http://localhost:8000 in your browser.
+
+**On Windows:**
+```bash
+run.bat
+```
+Then open http://localhost:8000 in your browser.
+
+### Alternative Methods
+
+**Method 1: Direct File Open**
+Simply open `index.html` directly in your web browser. No server required!
+
+**Method 2: Python HTTP Server**
+```bash
+# Python 3
+python3 -m http.server 8000
+
+# Python 2
+python -m SimpleHTTPServer 8000
+```
+Then open http://localhost:8000 in your browser.
+
+**Method 3: Node.js HTTP Server**
+```bash
+npx http-server -p 8000
+```
+Then open http://localhost:8000 in your browser.
+
+**Method 4: VS Code Live Server**
+If you use VS Code, install the "Live Server" extension and right-click `index.html` → "Open with Live Server"
+
+### Requirements
+
+- A modern web browser (Chrome, Firefox, Safari, Edge)
+- No build process or dependencies required!
+- Optional: Python 3, Python 2, or Node.js for local server (only needed for some features)
 
 Enjoy defending your base!
 
