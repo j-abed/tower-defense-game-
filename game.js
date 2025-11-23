@@ -7,21 +7,15 @@ class Game {
         this.abilitySystem = new AbilitySystem();
         this.researchSystem = new ResearchSystem();
         this.achievementSystem = new AchievementSystem();
-        this.statistics = new Statistics();
         this.campaignSystem = new CampaignSystem();
+        this.themeSystem = new ThemeSystem();
         this.mapSeed = null; // Will be set on first load
-        this.dynamicDifficultyAdjustment = 1.0; // For dynamic difficulty
         this.totalTowersPlaced = 0; // Track total towers placed for achievements
-        this.currentWaveKills = 0;
-        this.currentWaveCurrency = 0;
         this.abilitySpeedBoost = 1.0;
         this.abilityFreezeWave = false;
         this.abilityShield = false;
         this.airstrikeActive = false;
         this.path = null; // Will be initialized in setupCanvas
-        this.theme = 'default'; // default, desert, snow, space, forest
-        this.waveTransitionTimer = 0;
-        this.waveTransitionActive = false;
         this.towers = [];
         this.enemies = [];
         this.selectedTower = null;
@@ -43,6 +37,10 @@ class Game {
         this.difficulty = 'normal'; // Easy, Normal, Hard, Nightmare
         this.perfectWaveStreak = 0; // Consecutive perfect waves
         this.waveLeaks = 0; // Enemies that reached end this wave
+        this.dynamicDifficulty = true; // Enable dynamic difficulty adjustment
+        this.performanceHistory = []; // Track recent performance
+        this.waveCountdown = 0; // Countdown timer between waves
+        this.waveCountdownActive = false;
 
         this.setupCanvas();
         this.setupMinimap();
@@ -285,9 +283,9 @@ class Game {
         // Theme selection
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
-            themeSelect.value = this.theme;
+            themeSelect.value = this.themeSystem.currentTheme;
             themeSelect.addEventListener('change', (e) => {
-                this.setTheme(e.target.value);
+                this.themeSystem.setTheme(e.target.value);
             });
         }
 
@@ -326,15 +324,15 @@ class Game {
         });
 
         // Statistics panel
-        const statsBtn = document.getElementById('statistics-btn');
-        if (statsBtn) {
-            statsBtn.addEventListener('click', () => {
+        const statisticsBtn = document.getElementById('statistics-btn');
+        if (statisticsBtn) {
+            statisticsBtn.addEventListener('click', () => {
                 this.showStatisticsPanel();
             });
         }
-        const closeStatsBtn = document.getElementById('close-statistics-btn');
-        if (closeStatsBtn) {
-            closeStatsBtn.addEventListener('click', () => {
+        const closeStatisticsBtn = document.getElementById('close-statistics-btn');
+        if (closeStatisticsBtn) {
+            closeStatisticsBtn.addEventListener('click', () => {
                 this.hideStatisticsPanel();
             });
         }
@@ -435,8 +433,9 @@ class Game {
         const tower = new Tower(x, y, this.selectedTowerType, this.particleSystem, this.damageNumberSystem, this);
         this.towers.push(tower);
         this.currency -= cost;
+        this.stats.totalCurrencySpent += cost;
         this.totalTowersPlaced++;
-        this.statistics.recordTowerPlaced(this.selectedTowerType, cost);
+        this.stats.favoriteTowerType[this.selectedTowerType] = (this.stats.favoriteTowerType[this.selectedTowerType] || 0) + 1;
         this.updateUI();
         this.achievementSystem.update(this);
     }
@@ -446,7 +445,6 @@ class Game {
         if (this.currency >= cost) {
             this.currency -= cost;
             tower.upgrade();
-            this.statistics.recordUpgrade(cost);
             this.updateTowerStats();
             this.updateUI();
         }
@@ -467,7 +465,6 @@ class Game {
         // Create sell effect
         this.particleSystem.createMoneyEffect(tower.x, tower.y);
         
-        this.statistics.recordTowerSold(refund);
         this.selectedTower = null;
         document.getElementById('upgrade-btn').disabled = true;
         document.getElementById('sell-btn').disabled = true;
@@ -552,8 +549,8 @@ class Game {
         this.enemiesSpawned = 0;
         this.spawnTimer = 0;
         this.waveLeaks = 0; // Reset leaks for new wave
-        this.currentWaveKills = 0;
-        this.currentWaveCurrency = 0;
+        this.waveStartTime = this.lastTime; // Track wave start time
+        this.waveCountdownActive = false;
 
         // Calculate enemies for this wave
         const baseEnemies = 10;
@@ -561,95 +558,48 @@ class Game {
         this.enemiesInWave = baseEnemies + (this.wave * 2) + (waveMultiplier * 5);
 
         document.getElementById('start-btn').disabled = true;
-        const countdownItem = document.getElementById('wave-countdown-item');
-        if (countdownItem) countdownItem.style.display = 'flex';
+        const progressContainer = document.getElementById('wave-progress-container');
+        if (progressContainer) progressContainer.style.display = 'block';
+        const countdownEl = document.getElementById('wave-countdown');
+        if (countdownEl) countdownEl.style.display = 'none';
         this.updateWavePreview();
-        this.updateUI();
     }
 
-    findKillerTower(enemy) {
-        // Find the closest tower to the enemy (simplified kill attribution)
-        let closestTower = null;
-        let closestDistance = Infinity;
-        for (const tower of this.towers) {
-            const distance = tower.getDistanceTo(enemy.position.x, enemy.position.y);
-            if (distance < tower.range && distance < closestDistance) {
-                closestDistance = distance;
-                closestTower = tower;
+    startWaveCountdown() {
+        this.waveCountdown = 5; // 5 second countdown
+        this.waveCountdownActive = true;
+        const countdownEl = document.getElementById('wave-countdown');
+        if (countdownEl) countdownEl.style.display = 'block';
+        const progressContainer = document.getElementById('wave-progress-container');
+        if (progressContainer) progressContainer.style.display = 'none';
+    }
+
+    updateWaveProgress() {
+        if (!this.waveInProgress) return;
+        const progress = (this.enemiesSpawned / this.enemiesInWave) * 100;
+        const progressBar = document.getElementById('wave-progress-bar');
+        const progressText = document.getElementById('wave-progress-text');
+        if (progressBar) progressBar.style.width = progress + '%';
+        if (progressText) progressText.textContent = Math.floor(progress) + '%';
+    }
+
+    updateWaveCountdown(currentTime) {
+        if (!this.waveCountdownActive) return;
+        
+        const elapsed = (currentTime - (this.waveCountdownStartTime || currentTime)) / 1000;
+        if (!this.waveCountdownStartTime) this.waveCountdownStartTime = currentTime;
+        
+        const remaining = Math.max(0, this.waveCountdown - elapsed);
+        const countdownValue = document.getElementById('wave-countdown-value');
+        if (countdownValue) {
+            countdownValue.textContent = Math.ceil(remaining) + 's';
+            if (remaining <= 0) {
+                this.waveCountdownActive = false;
+                this.waveCountdownStartTime = null;
+                const countdownEl = document.getElementById('wave-countdown');
+                if (countdownEl) countdownEl.style.display = 'none';
+                document.getElementById('start-btn').disabled = false;
             }
-        }
-        return closestTower;
-    }
-
-    getTowerTypeForKill(enemy) {
-        const tower = this.findKillerTower(enemy);
-        return tower ? tower.type : 'unknown';
-    }
-
-    getThemeColors() {
-        const themes = {
-            default: {
-                background: '#1a252f',
-                path: '#34495e',
-                grid: '#1e2a35'
-            },
-            desert: {
-                background: '#d4a574',
-                path: '#c49464',
-                grid: '#b88454'
-            },
-            snow: {
-                background: '#e8f4f8',
-                path: '#d0e8f0',
-                grid: '#b8dce8'
-            },
-            space: {
-                background: '#0a0a1a',
-                path: '#1a1a2e',
-                grid: '#0f0f1f'
-            },
-            forest: {
-                background: '#2d5016',
-                path: '#3d6026',
-                grid: '#1d4016'
-            }
-        };
-        return themes[this.theme] || themes.default;
-    }
-
-    setTheme(theme) {
-        if (['default', 'desert', 'snow', 'space', 'forest'].includes(theme)) {
-            this.theme = theme;
-        }
-    }
-
-    startWaveTransition() {
-        this.waveTransitionActive = true;
-        this.waveTransitionTimer = 60; // 1 second at 60fps
-    }
-
-    renderWaveTransition() {
-        if (this.waveTransitionTimer > 0) {
-            const progress = 1 - (this.waveTransitionTimer / 60);
-            const alpha = Math.sin(progress * Math.PI) * 0.5;
-            
-            this.ctx.save();
-            this.ctx.globalAlpha = alpha;
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // Wave number text
-            this.ctx.globalAlpha = alpha * 2;
-            this.ctx.fillStyle = '#667eea';
-            this.ctx.font = 'bold 48px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(`Wave ${this.wave} Complete!`, this.canvas.width / 2, this.canvas.height / 2);
-            this.ctx.restore();
-            
-            this.waveTransitionTimer--;
-        } else {
-            this.waveTransitionActive = false;
         }
     }
 
@@ -659,12 +609,21 @@ class Game {
             // Check if all enemies are dead or reached end
             if (this.enemies.every(e => e.isDead || e.reachedEnd)) {
                 this.waveInProgress = false;
-                document.getElementById('start-btn').disabled = false;
-                const countdownItem = document.getElementById('wave-countdown-item');
-                if (countdownItem) countdownItem.style.display = 'none';
-                this.startWaveTransition();
+                this.startWaveCountdown();
                 this.processWaveRewards();
                 this.updateWavePreview();
+                
+                // Check campaign completion
+                if (this.campaignSystem.campaignMode) {
+                    if (this.campaignSystem.checkLevelCompletion(this)) {
+                        this.showCampaignComplete();
+                    }
+                }
+            }
+
+            // Update wave progress
+            if (this.waveInProgress) {
+                this.updateWaveProgress();
             }
             return;
         }
@@ -737,14 +696,11 @@ class Game {
                     const economyMultiplier = this.researchSystem.getUpgradeMultiplier('economy');
                     const reward = Math.floor(enemy.reward * multipliers.enemyReward * economyMultiplier);
                     this.currency += reward;
+                    this.stats.totalCurrencyEarned += reward;
                     this.totalKills++;
-                    this.currentWaveKills++;
-                    this.currentWaveCurrency += reward;
-                    
-                    // Find which tower killed this enemy (simplified - use closest tower)
-                    const killerTower = this.findKillerTower(enemy);
-                    this.statistics.recordKill(killerTower ? killerTower.type : 'unknown', enemy.type);
-                    this.statistics.recordCurrencyEarned(reward);
+                    if (enemy.type === 'boss') {
+                        this.stats.bossKills = (this.stats.bossKills || 0) + 1;
+                    }
                     
                     // Handle splitting enemies
                     if (enemy.splits && enemy.shouldSplit()) {
@@ -781,37 +737,24 @@ class Game {
             // Update achievements
             this.achievementSystem.update(this);
 
-            // Update dynamic difficulty
-            this.updateDynamicDifficulty();
-
-            // Update campaign objectives if in campaign mode
-            if (this.campaignSystem.campaignMode) {
-                const level = this.campaignSystem.levels[this.campaignSystem.currentLevel];
-                if (level && level.isCompleted(this)) {
-                    // Level completed - could show notification
-                }
-            }
+            // Update wave countdown
+            this.updateWaveCountdown(currentTime);
         }
 
         this.updateUI();
     }
 
     render() {
-        // Clear canvas with theme-based background
-        const themeColors = this.getThemeColors();
-        this.ctx.fillStyle = themeColors.background;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Apply theme background
+        const theme = this.themeSystem.getCurrentTheme();
+        theme.applyToBackground(this.ctx, this.canvas.width, this.canvas.height);
 
         // Draw background grid
         this.drawGrid();
 
         // Draw path with theme
-        this.path.render(this.ctx, this.canvas.width, this.canvas.height, this.theme);
-        
-        // Draw wave transition effect
-        if (this.waveTransitionActive) {
-            this.renderWaveTransition();
-        }
+        const theme = this.themeSystem.getCurrentTheme();
+        this.path.render(this.ctx, this.canvas.width, this.canvas.height, theme);
 
         // Draw towers
         for (const tower of this.towers) {
@@ -881,8 +824,7 @@ class Game {
     }
 
     drawGrid() {
-        const themeColors = this.getThemeColors();
-        this.ctx.strokeStyle = themeColors.grid;
+        this.ctx.strokeStyle = '#1e2a35';
         this.ctx.lineWidth = 0.5;
         const gridSize = 50;
 
@@ -1030,34 +972,7 @@ class Game {
         const aliveEnemies = this.enemies.filter(e => !e.isDead && !e.reachedEnd).length;
         document.getElementById('enemies-left-value').textContent = aliveEnemies;
         
-        // Update wave progress bar
-        this.updateWaveProgress();
-        
-        // Update countdown timer if wave is in progress
-        this.updateWaveCountdown();
-        
         this.updateWavePreview();
-    }
-
-    updateWaveProgress() {
-        const progressBar = document.getElementById('wave-progress-bar');
-        const progressFill = document.getElementById('wave-progress-fill');
-        if (progressBar && progressFill && this.waveInProgress) {
-            const progress = this.enemiesSpawned / this.enemiesInWave;
-            progressFill.style.width = `${progress * 100}%`;
-        } else if (progressFill) {
-            progressFill.style.width = '0%';
-        }
-    }
-
-    updateWaveCountdown() {
-        const countdownEl = document.getElementById('wave-countdown');
-        if (countdownEl && this.waveInProgress) {
-            const remaining = this.enemiesInWave - this.enemiesSpawned;
-            countdownEl.textContent = remaining > 0 ? `Next: ${remaining}` : 'Final Wave';
-        } else if (countdownEl) {
-            countdownEl.textContent = '';
-        }
     }
 
     updateTowerStats() {
@@ -1115,25 +1030,13 @@ class Game {
         // Check for new high score
         const isNewHighScore = this.checkHighScore(finalWave, this.totalKills, score);
         
-        // Check campaign completion
-        let campaignCompleted = false;
-        if (this.campaignSystem.campaignMode) {
-            campaignCompleted = this.campaignSystem.endCampaign(this);
-        }
-        
         overlay.classList.remove('hidden');
-        if (victory || campaignCompleted) {
-            title.textContent = campaignCompleted ? 'Campaign Level Complete!' : 'Victory!';
+        if (victory) {
+            title.textContent = 'Victory!';
             title.style.color = '#2ecc71';
             let msg = `You survived ${finalWave} waves!`;
             msg += `\nKills: ${this.totalKills}`;
             msg += `\nScore: ${score}`;
-            if (campaignCompleted) {
-                const level = this.campaignSystem.levels[this.campaignSystem.currentLevel];
-                msg += `\n\nCampaign Rewards:`;
-                if (level.rewards.research) msg += `\n+${level.rewards.research} Research Points`;
-                if (level.rewards.currency) msg += `\n+$${level.rewards.currency}`;
-            }
             if (isNewHighScore) {
                 msg += `\n\n🎉 NEW HIGH SCORE! 🎉`;
             }
@@ -1153,7 +1056,6 @@ class Game {
         // Save high scores
         this.saveHighScores();
         this.updateHighScoreDisplay();
-        this.statistics.saveStatistics();
     }
 
     loadHighScores() {
@@ -1220,7 +1122,7 @@ class Game {
     }
 
     getDifficultyMultipliers() {
-        const baseMultipliers = {
+        const multipliers = {
             easy: {
                 currency: 1.5,
                 enemyHealth: 0.7,
@@ -1246,40 +1148,46 @@ class Game {
                 spawnRate: 1.5
             }
         };
+        const base = multipliers[this.difficulty] || multipliers.normal;
         
-        const base = baseMultipliers[this.difficulty] || baseMultipliers.normal;
+        // Apply dynamic difficulty adjustments
+        if (this.dynamicDifficulty && this.dynamicAdjustment) {
+            return {
+                currency: base.currency * this.dynamicAdjustment.currency,
+                enemyHealth: base.enemyHealth * this.dynamicAdjustment.enemyHealth,
+                enemyReward: base.enemyReward * this.dynamicAdjustment.enemyReward,
+                spawnRate: base.spawnRate * this.dynamicAdjustment.spawnRate
+            };
+        }
         
-        // Apply dynamic difficulty adjustment
-        return {
-            currency: base.currency * this.dynamicDifficultyAdjustment,
-            enemyHealth: base.enemyHealth / this.dynamicDifficultyAdjustment,
-            enemyReward: base.enemyReward * this.dynamicDifficultyAdjustment,
-            spawnRate: base.spawnRate / this.dynamicDifficultyAdjustment
-        };
+        return base;
     }
 
-    updateDynamicDifficulty() {
-        // Adjust difficulty based on player performance
-        // If player is doing well (perfect waves, high health), increase difficulty slightly
-        // If player is struggling (low health, many leaks), decrease difficulty slightly
-        
-        const healthPercent = this.health / 100;
-        const recentPerformance = this.perfectWaveStreak;
-        
-        // Adjust based on health and performance
-        if (healthPercent > 0.8 && recentPerformance >= 2) {
-            // Player doing well - increase difficulty
-            this.dynamicDifficultyAdjustment = Math.min(1.2, this.dynamicDifficultyAdjustment + 0.01);
-        } else if (healthPercent < 0.3 || this.waveLeaks > 5) {
-            // Player struggling - decrease difficulty
-            this.dynamicDifficultyAdjustment = Math.max(0.8, this.dynamicDifficultyAdjustment - 0.01);
-        } else {
-            // Gradually return to normal
-            if (this.dynamicDifficultyAdjustment > 1.0) {
-                this.dynamicDifficultyAdjustment = Math.max(1.0, this.dynamicDifficultyAdjustment - 0.005);
-            } else if (this.dynamicDifficultyAdjustment < 1.0) {
-                this.dynamicDifficultyAdjustment = Math.min(1.0, this.dynamicDifficultyAdjustment + 0.005);
-            }
+    adjustDynamicDifficulty() {
+        if (this.performanceHistory.length < 3) return;
+
+        const recentPerfect = this.performanceHistory.filter(p => p.perfect).length;
+        const recentLeaks = this.performanceHistory.reduce((sum, p) => sum + p.leaks, 0);
+        const perfectRate = recentPerfect / this.performanceHistory.length;
+
+        // Adjust based on performance
+        this.dynamicAdjustment = {
+            currency: 1.0,
+            enemyHealth: 1.0,
+            enemyReward: 1.0,
+            spawnRate: 1.0
+        };
+
+        // If player is doing too well, increase difficulty slightly
+        if (perfectRate > 0.8 && recentLeaks === 0) {
+            this.dynamicAdjustment.enemyHealth = 1.1;
+            this.dynamicAdjustment.spawnRate = 1.05;
+        }
+        // If player is struggling, decrease difficulty slightly
+        else if (perfectRate < 0.3 || recentLeaks > 5) {
+            this.dynamicAdjustment.enemyHealth = 0.95;
+            this.dynamicAdjustment.spawnRate = 0.95;
+            this.dynamicAdjustment.currency = 1.05;
         }
     }
 
@@ -1317,8 +1225,32 @@ class Game {
         let rewardText = '';
         let bonusCurrency = 0;
 
+        // Track wave time
+        if (this.waveStartTime) {
+            const waveTime = (this.lastTime - this.waveStartTime) / 1000; // in seconds
+            this.stats.waveTimes.push(waveTime);
+            const sum = this.stats.waveTimes.reduce((a, b) => a + b, 0);
+            this.stats.averageWaveTime = sum / this.stats.waveTimes.length;
+        }
+
+        // Track performance for dynamic difficulty
+        if (this.dynamicDifficulty) {
+            this.performanceHistory.push({
+                wave: this.wave,
+                leaks: this.waveLeaks,
+                perfect: isPerfectWave,
+                time: this.stats.waveTimes[this.stats.waveTimes.length - 1] || 0
+            });
+            // Keep only last 5 waves
+            if (this.performanceHistory.length > 5) {
+                this.performanceHistory.shift();
+            }
+            this.adjustDynamicDifficulty();
+        }
+
         if (isPerfectWave) {
             this.perfectWaveStreak++;
+            this.stats.perfectWaves++;
             // Base perfect wave bonus
             bonusCurrency = 50 + (this.wave * 5);
             
@@ -1332,6 +1264,7 @@ class Game {
             }
         } else {
             this.perfectWaveStreak = 0;
+            this.stats.wavesWithLeaks++;
             // Small completion bonus even with leaks
             bonusCurrency = Math.max(0, 20 - (this.waveLeaks * 5));
             if (bonusCurrency > 0) {
@@ -1342,12 +1275,7 @@ class Game {
         }
 
         this.currency += bonusCurrency;
-        this.currentWaveCurrency += bonusCurrency;
-
-        // Record wave statistics
-        this.statistics.recordWave(this.wave, isPerfectWave, this.waveLeaks, this.currentWaveKills, this.currentWaveCurrency);
-        this.currentWaveKills = 0;
-        this.currentWaveCurrency = 0;
+        this.stats.totalCurrencyEarned += bonusCurrency;
 
         // Award research points
         const researchPoints = Math.max(1, Math.floor(this.wave / 2));
@@ -1357,7 +1285,6 @@ class Game {
         this.showWaveReward(rewardText, bonusCurrency, isPerfectWave);
         this.updateUI();
         this.updateResearchUI();
-        this.statistics.saveStatistics();
     }
 
     showWaveReward(text, amount, isPerfect) {
@@ -1409,6 +1336,38 @@ class Game {
         // Visual effect
         this.particleSystem.createExplosion(x, y, '#f39c12', 50);
         this.damageNumberSystem.createDamageNumber(x, y, airstrikeDamage, '#f39c12');
+    }
+
+    showCampaignComplete() {
+        const level = this.campaignSystem.currentLevel;
+        if (!level) return;
+
+        const notification = document.createElement('div');
+        notification.className = 'campaign-complete-notification';
+        notification.innerHTML = `
+            <div style="font-weight: bold; font-size: 1.5em; margin-bottom: 10px;">Level Complete!</div>
+            <div style="font-size: 1.2em; margin-bottom: 10px;">${level.name}</div>
+            <div style="font-size: 1em; color: #f39c12;">Rewards: +$${level.rewards.currency} +${level.rewards.research} RP</div>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 1em;
+            z-index: 2000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            animation: fadeInOut 3s ease-in-out;
+            pointer-events: none;
+            text-align: center;
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
     }
 
     updateAbilitiesUI() {
@@ -1629,43 +1588,92 @@ class Game {
     renderStatistics() {
         const content = document.getElementById('statistics-content');
         if (!content) return;
+        const stats = this.stats;
+        const playTimeMinutes = Math.floor(stats.playTime / 60);
+        const playTimeSeconds = stats.playTime % 60;
+        const favoriteTower = Object.keys(stats.favoriteTowerType).length > 0 
+            ? Object.keys(stats.favoriteTowerType).reduce((a, b) => 
+                stats.favoriteTowerType[a] > stats.favoriteTowerType[b] ? a : b, Object.keys(stats.favoriteTowerType)[0])
+            : 'None';
+        content.innerHTML = `<div class="stat-section"><h3 style="color: #f39c12; margin-bottom: 10px; border-bottom: 1px solid #34495e; padding-bottom: 5px;">Combat</h3><div class="stat-item"><span class="stat-label">Total Kills:</span><span class="stat-value">${this.totalKills}</span></div><div class="stat-item"><span class="stat-label">Total Damage:</span><span class="stat-value">${Math.floor(stats.totalDamageDealt).toLocaleString()}</span></div><div class="stat-item"><span class="stat-label">Accuracy:</span><span class="stat-value">${stats.accuracy}%</span></div><div class="stat-item"><span class="stat-label">Shots Fired:</span><span class="stat-value">${stats.totalShots}</span></div><div class="stat-item"><span class="stat-label">Hits:</span><span class="stat-value">${stats.totalHits}</span></div></div><div class="stat-section" style="margin-top: 15px;"><h3 style="color: #f39c12; margin-bottom: 10px; border-bottom: 1px solid #34495e; padding-bottom: 5px;">Economy</h3><div class="stat-item"><span class="stat-label">Currency Earned:</span><span class="stat-value">$${stats.totalCurrencyEarned.toLocaleString()}</span></div><div class="stat-item"><span class="stat-label">Currency Spent:</span><span class="stat-value">$${stats.totalCurrencySpent.toLocaleString()}</span></div><div class="stat-item"><span class="stat-label">Net Profit:</span><span class="stat-value">$${(stats.totalCurrencyEarned - stats.totalCurrencySpent).toLocaleString()}</span></div></div><div class="stat-section" style="margin-top: 15px;"><h3 style="color: #f39c12; margin-bottom: 10px; border-bottom: 1px solid #34495e; padding-bottom: 5px;">Towers</h3><div class="stat-item"><span class="stat-label">Towers Placed:</span><span class="stat-value">${this.totalTowersPlaced}</span></div><div class="stat-item"><span class="stat-label">Towers Upgraded:</span><span class="stat-value">${stats.towersUpgraded}</span></div><div class="stat-item"><span class="stat-label">Towers Sold:</span><span class="stat-value">${stats.towersSold}</span></div><div class="stat-item"><span class="stat-label">Favorite Tower:</span><span class="stat-value">${favoriteTower.charAt(0).toUpperCase() + favoriteTower.slice(1)}</span></div></div><div class="stat-section" style="margin-top: 15px;"><h3 style="color: #f39c12; margin-bottom: 10px; border-bottom: 1px solid #34495e; padding-bottom: 5px;">Waves</h3><div class="stat-item"><span class="stat-label">Perfect Waves:</span><span class="stat-value">${stats.perfectWaves}</span></div><div class="stat-item"><span class="stat-label">Waves with Leaks:</span><span class="stat-value">${stats.wavesWithLeaks}</span></div><div class="stat-item"><span class="stat-label">Perfect Wave Rate:</span><span class="stat-value">${this.wave > 0 ? ((stats.perfectWaves / this.wave) * 100).toFixed(1) : 0}%</span></div><div class="stat-item"><span class="stat-label">Avg Wave Time:</span><span class="stat-value">${stats.averageWaveTime > 0 ? stats.averageWaveTime.toFixed(1) : 0}s</span></div></div><div class="stat-section" style="margin-top: 15px;"><h3 style="color: #f39c12; margin-bottom: 10px; border-bottom: 1px solid #34495e; padding-bottom: 5px;">Time</h3><div class="stat-item"><span class="stat-label">Play Time:</span><span class="stat-value">${playTimeMinutes}m ${playTimeSeconds}s</span></div></div>        `;
+    }
 
-        const stats = this.statistics.getStats();
-        const playTimeHours = Math.floor(stats.totalPlayTime / 3600000);
-        const playTimeMinutes = Math.floor((stats.totalPlayTime % 3600000) / 60000);
+    showCampaignPanel() {
+        const panel = document.getElementById('campaign-panel');
+        if (panel) {
+            panel.style.display = 'block';
+            this.renderCampaignLevels();
+        }
+    }
 
-        content.innerHTML = `
-            <div style="margin-bottom: 15px;">
-                <h3 style="color: #ecf0f1; margin-bottom: 10px; border-bottom: 2px solid #34495e; padding-bottom: 5px;">Combat Stats</h3>
-                <div class="stat-item"><span class="stat-label">Total Kills:</span><span class="stat-value">${stats.totalKills}</span></div>
-                <div class="stat-item"><span class="stat-label">Total Waves:</span><span class="stat-value">${stats.totalWaves}</span></div>
-                <div class="stat-item"><span class="stat-label">Perfect Waves:</span><span class="stat-value">${stats.perfectWaves} (${stats.perfectWavePercentage}%)</span></div>
-                <div class="stat-item"><span class="stat-label">Total Damage:</span><span class="stat-value">${stats.totalDamageDealt.toLocaleString()}</span></div>
-                <div class="stat-item"><span class="stat-label">Avg Kills/Wave:</span><span class="stat-value">${stats.averageKillsPerWave}</span></div>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h3 style="color: #ecf0f1; margin-bottom: 10px; border-bottom: 2px solid #34495e; padding-bottom: 5px;">Economy Stats</h3>
-                <div class="stat-item"><span class="stat-label">Currency Earned:</span><span class="stat-value">$${stats.totalCurrencyEarned.toLocaleString()}</span></div>
-                <div class="stat-item"><span class="stat-label">Currency Spent:</span><span class="stat-value">$${stats.totalCurrencySpent.toLocaleString()}</span></div>
-                <div class="stat-item"><span class="stat-label">Net Profit:</span><span class="stat-value">$${(stats.totalCurrencyEarned - stats.totalCurrencySpent).toLocaleString()}</span></div>
-                <div class="stat-item"><span class="stat-label">Efficiency:</span><span class="stat-value">${stats.efficiency} kills/$100</span></div>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h3 style="color: #ecf0f1; margin-bottom: 10px; border-bottom: 2px solid #34495e; padding-bottom: 5px;">Tower Stats</h3>
-                <div class="stat-item"><span class="stat-label">Towers Placed:</span><span class="stat-value">${stats.totalTowersPlaced}</span></div>
-                <div class="stat-item"><span class="stat-label">Towers Sold:</span><span class="stat-value">${stats.totalTowersSold}</span></div>
-                <div class="stat-item"><span class="stat-label">Upgrades:</span><span class="stat-value">${stats.totalUpgrades}</span></div>
-                <div class="stat-item"><span class="stat-label">Favorite Tower:</span><span class="stat-value">${stats.favoriteTower}</span></div>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h3 style="color: #ecf0f1; margin-bottom: 10px; border-bottom: 2px solid #34495e; padding-bottom: 5px;">Enemy Stats</h3>
-                <div class="stat-item"><span class="stat-label">Most Killed:</span><span class="stat-value">${stats.mostKilledEnemy}</span></div>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h3 style="color: #ecf0f1; margin-bottom: 10px; border-bottom: 2px solid #34495e; padding-bottom: 5px;">Time Stats</h3>
-                <div class="stat-item"><span class="stat-label">Play Time:</span><span class="stat-value">${playTimeHours}h ${playTimeMinutes}m</span></div>
-            </div>
-        `;
+    hideCampaignPanel() {
+        const panel = document.getElementById('campaign-panel');
+        if (panel) {
+            panel.style.display = 'none';
+        }
+    }
+
+    renderCampaignLevels() {
+        const content = document.getElementById('campaign-content');
+        if (!content) return;
+
+        content.innerHTML = '';
+
+        for (const level of this.campaignSystem.levels) {
+            const levelDiv = document.createElement('div');
+            const isUnlocked = level.id === 'level1' || 
+                (this.campaignSystem.levels.indexOf(level) > 0 && 
+                 this.campaignSystem.levels[this.campaignSystem.levels.indexOf(level) - 1].completed);
+            
+            levelDiv.style.cssText = `
+                background: ${level.completed ? '#27ae60' : isUnlocked ? '#34495e' : '#2c3e50'};
+                border: 2px solid ${level.completed ? '#2ecc71' : isUnlocked ? '#667eea' : '#7f8c8d'};
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 10px;
+                opacity: ${isUnlocked ? '1' : '0.6'};
+            `;
+
+            levelDiv.innerHTML = `
+                <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 5px;">${level.name}</div>
+                <div style="font-size: 0.9em; color: #bdc3c7; margin-bottom: 10px;">${level.description}</div>
+                <div style="margin-bottom: 10px;">
+                    <div style="font-size: 0.85em; color: #ecf0f1; margin-bottom: 5px;">Objectives:</div>
+                    ${level.objectives.map(obj => `
+                        <div style="font-size: 0.8em; color: #bdc3c7; margin-left: 10px;">
+                            ${level.checkObjectives(this)[obj.id] ? '✓' : '○'} ${obj.description}
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <div style="font-size: 0.85em; color: #f39c12;">
+                        Rewards: +$${level.rewards.currency} +${level.rewards.research} RP
+                    </div>
+                    ${isUnlocked && !this.campaignSystem.campaignMode ? `
+                        <button class="campaign-start-btn" data-level="${level.id}" 
+                                style="background: #667eea; border: none; color: white; padding: 8px 15px; 
+                                       border-radius: 5px; cursor: pointer;">
+                            Start Level
+                        </button>
+                    ` : this.campaignSystem.campaignMode && this.campaignSystem.currentLevel?.id === level.id ? 
+                        '<span style="color: #2ecc71;">In Progress</span>' :
+                        level.completed ? '<span style="color: #2ecc71;">✓ Completed</span>' : 
+                        '<span style="color: #7f8c8d;">Locked</span>'}
+                </div>
+            `;
+
+            const startBtn = levelDiv.querySelector('.campaign-start-btn');
+            if (startBtn) {
+                startBtn.addEventListener('click', () => {
+                    if (this.campaignSystem.startLevel(level.id, this)) {
+                        this.hideCampaignPanel();
+                        this.restart();
+                    }
+                });
+            }
+
+            content.appendChild(levelDiv);
+        }
     }
 
     restart() {
@@ -1684,11 +1692,29 @@ class Game {
         this.perfectWaveStreak = 0;
         this.waveLeaks = 0;
         this.totalTowersPlaced = 0;
-        this.currentWaveKills = 0;
-        this.currentWaveCurrency = 0;
-        this.dynamicDifficultyAdjustment = 1.0;
-        this.campaignSystem.campaignMode = false;
-        this.statistics.updatePlayTime();
+        this.waveCountdown = 0;
+        this.waveCountdownActive = false;
+        this.waveCountdownStartTime = null;
+        this.performanceHistory = [];
+        this.dynamicAdjustment = null;
+        this.stats = {
+            totalDamageDealt: 0,
+            totalCurrencyEarned: 0,
+            totalCurrencySpent: 0,
+            towersUpgraded: 0,
+            towersSold: 0,
+            perfectWaves: 0,
+            wavesWithLeaks: 0,
+            averageWaveTime: 0,
+            waveTimes: [],
+            favoriteTowerType: {},
+            totalShots: 0,
+            totalHits: 0,
+            accuracy: 0,
+            startTime: Date.now(),
+            playTime: 0,
+            bossKills: 0
+        };
         
         // Regenerate map with same seed
         this.regenerateMap(this.mapSeed);

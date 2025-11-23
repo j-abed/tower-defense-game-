@@ -66,47 +66,12 @@ body {
     padding-bottom: 10px;
 }
 
-.campaign-level.current {
-    border-color: #f39c12 !important;
-    box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
+.stat-section {
+    margin-bottom: 15px;
 }
 
-/* Tooltip styles */
-.tooltip {
-    position: relative;
-    display: inline-block;
-}
-
-.tooltip .tooltiptext {
-    visibility: hidden;
-    width: 200px;
-    background-color: #2c3e50;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 8px;
-    position: absolute;
-    z-index: 3000;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -100px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 0.85em;
-    border: 2px solid #667eea;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
-}
-
-.statistics-panel h3 {
-    color: #ecf0f1;
+.stat-section h3 {
     font-size: 1em;
-    margin-top: 15px;
-    margin-bottom: 10px;
 }
 
 .abilities-grid {

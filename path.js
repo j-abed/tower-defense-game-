@@ -184,10 +184,8 @@ class Path {
     }
 
     // Render the path on canvas
-    render(ctx, canvasWidth, canvasHeight, theme = 'default') {
+    render(ctx, canvasWidth, canvasHeight, theme = null) {
         ctx.save();
-        
-        const themeColors = this.getThemeColors(theme);
         
         // Draw path shadow
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
@@ -202,10 +200,12 @@ class Path {
         ctx.stroke();
         
         // Draw path background (darker) with gradient
+        const pathBgColor = theme ? theme.colors.pathBackground : '#34495e';
+        const pathBgColor2 = theme ? this.darkenColor(pathBgColor, 0.1) : '#2c3e50';
         const pathGradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-        pathGradient.addColorStop(0, themeColors.path);
-        pathGradient.addColorStop(0.5, themeColors.pathDark);
-        pathGradient.addColorStop(1, themeColors.path);
+        pathGradient.addColorStop(0, pathBgColor);
+        pathGradient.addColorStop(0.5, pathBgColor2);
+        pathGradient.addColorStop(1, pathBgColor);
         ctx.strokeStyle = pathGradient;
         ctx.lineWidth = 50;
         ctx.lineCap = 'round';
@@ -218,7 +218,8 @@ class Path {
         ctx.stroke();
 
         // Draw path center line (lighter) with highlight
-        ctx.strokeStyle = themeColors.pathLight;
+        const pathColor = theme ? theme.colors.path : '#95a5a6';
+        ctx.strokeStyle = pathColor;
         ctx.lineWidth = 30;
         ctx.beginPath();
         ctx.moveTo(this.waypoints[0].x, this.waypoints[0].y);
@@ -228,7 +229,8 @@ class Path {
         ctx.stroke();
         
         // Draw path center highlight
-        ctx.strokeStyle = themeColors.pathHighlight;
+        const pathHighlight = theme ? this.lightenColor(pathColor, 0.2) : '#bdc3c7';
+        ctx.strokeStyle = pathHighlight;
         ctx.lineWidth = 8;
         ctx.beginPath();
         ctx.moveTo(this.waypoints[0].x, this.waypoints[0].y);
@@ -238,7 +240,7 @@ class Path {
         ctx.stroke();
 
         // Draw waypoint markers
-        ctx.fillStyle = themeColors.pathLight;
+        ctx.fillStyle = '#95a5a6';
         for (let i = 0; i < this.waypoints.length; i++) {
             ctx.beginPath();
             ctx.arc(this.waypoints[i].x, this.waypoints[i].y, 8, 0, Math.PI * 2);
@@ -291,42 +293,6 @@ class Path {
         ctx.restore();
     }
 
-    getThemeColors(theme) {
-        const themes = {
-            default: {
-                path: '#34495e',
-                pathDark: '#2c3e50',
-                pathLight: '#95a5a6',
-                pathHighlight: '#bdc3c7'
-            },
-            desert: {
-                path: '#c49464',
-                pathDark: '#b88454',
-                pathLight: '#d4a574',
-                pathHighlight: '#e4b584'
-            },
-            snow: {
-                path: '#d0e8f0',
-                pathDark: '#b8dce8',
-                pathLight: '#e8f4f8',
-                pathHighlight: '#f0f8fc'
-            },
-            space: {
-                path: '#1a1a2e',
-                pathDark: '#0f0f1f',
-                pathLight: '#2a2a3e',
-                pathHighlight: '#3a3a4e'
-            },
-            forest: {
-                path: '#3d6026',
-                pathDark: '#2d5016',
-                pathLight: '#4d7036',
-                pathHighlight: '#5d8046'
-            }
-        };
-        return themes[theme] || themes.default;
-    }
-
     // Check if a point is on the path (for tower placement validation)
     isPointOnPath(x, y, tolerance = 40) {
         for (let i = 0; i < this.waypoints.length - 1; i++) {
@@ -365,6 +331,22 @@ class Path {
             }
         }
         return false;
+    }
+
+    darkenColor(color, amount) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const r = Math.max(0, ((num >> 16) & 0xFF) * (1 - amount));
+        const g = Math.max(0, ((num >> 8) & 0xFF) * (1 - amount));
+        const b = Math.max(0, (num & 0xFF) * (1 - amount));
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+    }
+
+    lightenColor(color, amount) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const r = Math.min(255, ((num >> 16) & 0xFF) + ((255 - ((num >> 16) & 0xFF)) * amount));
+        const g = Math.min(255, ((num >> 8) & 0xFF) + ((255 - ((num >> 8) & 0xFF)) * amount));
+        const b = Math.min(255, (num & 0xFF) + ((255 - (num & 0xFF)) * amount));
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
     }
 }
 

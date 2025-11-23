@@ -32,15 +32,6 @@
                         <span class="stat-label">Enemies Left:</span>
                         <span id="enemies-left-value" class="stat-value">0</span>
                     </div>
-                    <div class="stat-item" id="wave-countdown-item" style="display: none;">
-                        <span class="stat-label">Next Enemy:</span>
-                        <span id="wave-countdown" class="stat-value">-</span>
-                    </div>
-                    <div class="stat-item" style="margin-top: 8px;">
-                        <div style="width: 100%; background: #34495e; border-radius: 5px; height: 8px; overflow: hidden;">
-                            <div id="wave-progress-fill" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
-                        </div>
-                    </div>
                     <div class="stat-item">
                         <span class="stat-label">Research Points:</span>
                         <span id="research-points" class="stat-value">0</span>
@@ -73,17 +64,6 @@
                     </div>
                 </div>
 
-                <div class="theme-controls">
-                    <h2>Theme</h2>
-                    <select id="theme-select" class="difficulty-select">
-                        <option value="default" selected>Default</option>
-                        <option value="desert">Desert</option>
-                        <option value="snow">Snow</option>
-                        <option value="space">Space</option>
-                        <option value="forest">Forest</option>
-                    </select>
-                </div>
-
                 <div class="difficulty-controls">
                     <h2>Difficulty</h2>
                     <select id="difficulty-select" class="difficulty-select">
@@ -95,6 +75,17 @@
                     <div class="difficulty-description" id="difficulty-description">
                         Standard difficulty with balanced gameplay.
                     </div>
+                </div>
+
+                <div class="theme-controls">
+                    <h2>Theme</h2>
+                    <select id="theme-select" class="difficulty-select">
+                        <option value="default" selected>Default</option>
+                        <option value="desert">Desert</option>
+                        <option value="snow">Snow</option>
+                        <option value="space">Space</option>
+                        <option value="forest">Forest</option>
+                    </select>
                 </div>
 
                 <div class="tower-info-panel" id="tower-info-panel" style="display: none;">
@@ -202,6 +193,19 @@
 
                 <div class="wave-preview" id="wave-preview">
                     <h2>Next Wave Preview</h2>
+                    <div id="wave-progress-container" style="margin-bottom: 10px; display: none;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span class="stat-label">Wave Progress:</span>
+                            <span id="wave-progress-text" class="stat-value">0%</span>
+                        </div>
+                        <div style="background: #34495e; border-radius: 5px; height: 20px; overflow: hidden;">
+                            <div id="wave-progress-bar" style="background: linear-gradient(90deg, #2ecc71, #27ae60); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    <div id="wave-countdown" style="display: none; text-align: center; padding: 8px; background: #34495e; border-radius: 5px; margin-bottom: 10px;">
+                        <span class="stat-label">Next Wave In: </span>
+                        <span id="wave-countdown-value" class="stat-value" style="color: #f39c12;">-</span>
+                    </div>
                     <div class="wave-preview-content">
                         <div class="stat-item">
                             <span class="stat-label">Wave:</span>
@@ -301,10 +305,10 @@
                 </div>
 
                 <div class="game-controls">
+                    <button id="campaign-btn" class="control-btn">Campaign</button>
                     <button id="research-btn" class="control-btn">Tech Tree</button>
                     <button id="achievements-btn" class="control-btn">Achievements</button>
                     <button id="statistics-btn" class="control-btn">Statistics</button>
-                    <button id="campaign-btn" class="control-btn">Campaign</button>
                     <button id="start-btn" class="control-btn" title="Start Wave - Press Enter">Start Wave</button>
                     <button id="pause-btn" class="control-btn" title="Pause/Resume - Press Space">Pause</button>
                     <button id="fastforward-btn" class="control-btn">Fast Forward (3x)</button>
@@ -334,8 +338,8 @@
     <script src="abilities.js"></script>
     <script src="research.js"></script>
     <script src="achievements.js"></script>
-    <script src="statistics.js"></script>
     <script src="campaign.js"></script>
+    <script src="themes.js"></script>
     <script src="enemy.js"></script>
     <script src="tower.js"></script>
     <script src="game.js"></script>

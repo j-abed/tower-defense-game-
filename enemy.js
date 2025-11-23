@@ -117,9 +117,9 @@ class Enemy {
         this.debuffed = false;
         this.debuffEndTime = 0;
         this.originalSpeed = this.speed;
-        this.deathAnimation = 0; // For death animation
-        this.rotationAngle = 0; // For smooth rotation
-        this.recentlyDamaged = 0; // For damage flash effect
+        this.deathAnimation = false;
+        this.deathAnimationTime = 0;
+        this.deathAnimationDuration = 20; // frames
     }
 
     takeDamage(damage, damageNumberSystem = null) {
@@ -141,7 +141,6 @@ class Enemy {
         if (actualDamage > 0) {
             const healthDamage = Math.min(actualDamage, this.health);
             this.health -= actualDamage;
-            this.recentlyDamaged = 10; // Flash effect duration
             
             // Create damage number
             if (damageNumberSystem) {
@@ -157,8 +156,9 @@ class Enemy {
         if (this.health <= 0) {
             this.health = 0;
             this.isDead = true;
-            this.deathAnimation = 30; // Start death animation
-            this.particleSystem.createExplosion(this.position.x, this.position.y, this.color);
+            this.deathAnimation = true;
+            this.deathAnimationTime = 0;
+            this.particleSystem.createExplosion(this.position.x, this.position.y, this.color, 30);
             this.particleSystem.createMoneyEffect(this.position.x, this.position.y);
         } else {
             this.particleSystem.createHit(this.position.x, this.position.y, this.color);
@@ -166,6 +166,10 @@ class Enemy {
     }
 
     update() {
+        if (this.deathAnimation) {
+            this.deathAnimationTime++;
+            return;
+        }
         if (this.isDead || this.reachedEnd) return;
 
         this.progress += this.speed;
@@ -177,26 +181,15 @@ class Enemy {
 
         const newPos = this.path.getPositionAt(this.progress);
         
-        // Calculate angle for rotation with smooth interpolation
+        // Calculate angle for rotation
         if (this.progress > 0.01) {
             const prevPos = this.path.getPositionAt(this.progress - 0.01);
             const dx = newPos.x - prevPos.x;
             const dy = newPos.y - prevPos.y;
-            const targetAngle = Math.atan2(dy, dx);
-            // Smooth rotation
-            let angleDiff = targetAngle - this.angle;
-            // Normalize angle difference
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            this.angle += angleDiff * 0.3; // Smooth interpolation
+            this.angle = Math.atan2(dy, dx);
         }
         
         this.position = newPos;
-
-        // Update death animation
-        if (this.deathAnimation > 0) {
-            this.deathAnimation--;
-        }
 
         // Regeneration
         if (this.regenerates && this.health < this.maxHealth && this.health > 0) {
@@ -211,23 +204,25 @@ class Enemy {
     }
 
     render(ctx) {
-        if (this.isDead) {
-            // Render death animation
-            if (this.deathAnimation > 0) {
-                const alpha = this.deathAnimation / 30;
-                const scale = 1 + (1 - alpha) * 0.5;
-                ctx.save();
-                ctx.globalAlpha = alpha;
-                ctx.translate(this.position.x, this.position.y);
-                ctx.scale(scale, scale);
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.ellipse(0, 0, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+        if (this.isDead && this.deathAnimation) {
+            // Death animation - fade out and scale down
+            this.deathAnimationTime++;
+            const progress = this.deathAnimationTime / this.deathAnimationDuration;
+            if (progress >= 1) {
+                this.deathAnimation = false;
+                return;
             }
+            
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.translate(this.position.x, this.position.y);
+            ctx.scale(1 - progress * 0.5, 1 - progress * 0.5);
+            this.renderEnemyBody(ctx);
+            ctx.restore();
             return;
         }
+        
+        if (this.isDead) return;
 
         // Draw shadow
         ctx.save();
@@ -246,51 +241,7 @@ class Enemy {
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.angle);
-
-        // Draw enemy body with enhanced gradient
-        const gradient = ctx.createRadialGradient(
-            -this.size * 0.3, -this.size * 0.3, 0,
-            0, 0, this.size
-        );
-        gradient.addColorStop(0, this.lightenColor(this.color, 0.2));
-        gradient.addColorStop(0.5, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 0.4));
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw inner highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(-this.size * 0.2, -this.size * 0.2, this.size * 0.4, this.size * 0.3, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw border with glow
-        ctx.save();
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-        ctx.restore();
-
-        // Draw direction indicator with gradient
-        const eyeGradient = ctx.createRadialGradient(this.size * 0.6, 0, 0, this.size * 0.6, 0, this.size * 0.3);
-        eyeGradient.addColorStop(0, '#ffffff');
-        eyeGradient.addColorStop(1, '#bdc3c7');
-        ctx.fillStyle = eyeGradient;
-        ctx.beginPath();
-        ctx.arc(this.size * 0.6, 0, this.size * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Eye pupil
-        ctx.fillStyle = '#2c3e50';
-        ctx.beginPath();
-        ctx.arc(this.size * 0.6, 0, this.size * 0.15, 0, Math.PI * 2);
-        ctx.fill();
-
+        this.renderEnemyBody(ctx);
         ctx.restore();
 
         // Draw shield if active
@@ -370,50 +321,64 @@ class Enemy {
 
     renderHealthBar(ctx) {
         const barWidth = this.size * 2;
-        const barHeight = 7;
+        const barHeight = 8;
         const barX = this.position.x - barWidth / 2;
-        const barY = this.position.y - this.size - 18;
+        const barY = this.position.y - this.size - 20;
 
-        // Background with border and animation
-        ctx.fillStyle = 'rgba(44, 62, 80, 0.9)';
+        // Background with border and shadow
+        ctx.save();
+        ctx.shadowBlur = 3;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillStyle = 'rgba(44, 62, 80, 0.95)';
         ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
         ctx.strokeStyle = '#34495e';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+        ctx.restore();
 
-        // Health
+        // Health with animated gradient
         const healthPercent = this.health / this.maxHealth;
         const healthWidth = barWidth * healthPercent;
         
         if (healthWidth > 0) {
-            // Animated health bar with pulsing effect for low health
-            const pulse = healthPercent < 0.3 ? Math.sin(Date.now() / 100) * 0.1 + 1 : 1;
+            // Animated health bar based on health percentage
+            let color1, color2, color3, color4;
+            if (healthPercent > 0.7) {
+                color1 = '#2ecc71';
+                color2 = '#27ae60';
+                color3 = '#2ecc71';
+                color4 = '#27ae60';
+            } else if (healthPercent > 0.4) {
+                color1 = '#f1c40f';
+                color2 = '#f39c12';
+                color3 = '#f1c40f';
+                color4 = '#f39c12';
+            } else {
+                color1 = '#e74c3c';
+                color2 = '#c0392b';
+                color3 = '#e74c3c';
+                color4 = '#c0392b';
+            }
             
             const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
-            if (healthPercent > 0.6) {
-                healthGradient.addColorStop(0, '#2ecc71');
-                healthGradient.addColorStop(1, '#27ae60');
-            } else if (healthPercent > 0.3) {
-                healthGradient.addColorStop(0, '#f39c12');
-                healthGradient.addColorStop(1, '#e67e22');
-            } else {
-                healthGradient.addColorStop(0, '#e74c3c');
-                healthGradient.addColorStop(1, '#c0392b');
-            }
+            healthGradient.addColorStop(0, color1);
+            healthGradient.addColorStop(0.5, color2);
+            healthGradient.addColorStop(0.5, color3);
+            healthGradient.addColorStop(1, color4);
             
             ctx.fillStyle = healthGradient;
-            ctx.fillRect(barX, barY, healthWidth * pulse, barHeight);
+            ctx.fillRect(barX, barY, healthWidth, barHeight);
             
             // Health bar highlight with animation
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.fillRect(barX, barY, healthWidth * pulse, barHeight * 0.4);
+            const time = Date.now() / 1000;
+            const pulse = Math.sin(time * 3) * 0.1 + 0.3;
+            ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+            ctx.fillRect(barX, barY, healthWidth, barHeight * 0.5);
             
-            // Damage flash effect (if recently damaged)
-            if (this.recentlyDamaged && this.recentlyDamaged > 0) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.recentlyDamaged / 10})`;
-                ctx.fillRect(barX, barY, barWidth, barHeight);
-                this.recentlyDamaged--;
-            }
+            // Health bar border highlight
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, healthWidth, barHeight);
         }
     }
 
@@ -429,6 +394,52 @@ class Enemy {
         const dx = this.position.x - x;
         const dy = this.position.y - y;
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    renderEnemyBody(ctx) {
+        // Draw enemy body with enhanced gradient
+        const gradient = ctx.createRadialGradient(
+            -this.size * 0.3, -this.size * 0.3, 0,
+            0, 0, this.size
+        );
+        gradient.addColorStop(0, this.lightenColor(this.color, 0.2));
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 0.4));
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw inner highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(-this.size * 0.2, -this.size * 0.2, this.size * 0.4, this.size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw border with glow
+        ctx.save();
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = this.color;
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw direction indicator with gradient
+        const eyeGradient = ctx.createRadialGradient(this.size * 0.6, 0, 0, this.size * 0.6, 0, this.size * 0.3);
+        eyeGradient.addColorStop(0, '#ffffff');
+        eyeGradient.addColorStop(1, '#bdc3c7');
+        ctx.fillStyle = eyeGradient;
+        ctx.beginPath();
+        ctx.arc(this.size * 0.6, 0, this.size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye pupil
+        ctx.fillStyle = '#2c3e50';
+        ctx.beginPath();
+        ctx.arc(this.size * 0.6, 0, this.size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     renderShieldBar(ctx) {

@@ -177,8 +177,9 @@ class Tower {
         this.receivingSupport = false;
         this.supportDamageMultiplier = 1.0;
         this.supportRangeMultiplier = 1.0;
-        this.currentAngle = 0; // For smooth rotation
-        this.upgradeAnimation = 0; // For upgrade visual effect
+        this.upgradeAnimation = false;
+        this.upgradeAnimationTime = 0;
+        this.upgradeAnimationDuration = 30;
     }
 
     findTarget(enemies) {
@@ -291,11 +292,6 @@ class Tower {
     }
 
     update(enemies, currentTime, towers = []) {
-        // Update upgrade animation
-        if (this.upgradeAnimation > 0) {
-            this.upgradeAnimation--;
-        }
-
         // Support towers don't shoot, they buff nearby towers
         if (this.support) {
             this.updateSupportBuffs(towers, currentTime);
@@ -488,7 +484,14 @@ class Tower {
         this.range = Math.floor(this.range * 1.2);
         this.fireRate = Math.max(100, this.fireRate * 0.9);
         this.upgradeCost = Math.floor(this.upgradeCost * 1.5);
-        this.upgradeAnimation = 30; // Start upgrade animation
+        this.upgradeAnimation = true;
+        this.upgradeAnimationTime = 0;
+        this.upgradeAnimationDuration = 30;
+        
+        // Create upgrade effect
+        if (this.particleSystem) {
+            this.particleSystem.createUpgradeEffect(this.x, this.y, this.color);
+        }
     }
 
     getUpgradeCost() {
@@ -496,6 +499,14 @@ class Tower {
     }
 
     render(ctx, showRange = false) {
+        // Update upgrade animation
+        if (this.upgradeAnimation) {
+            this.upgradeAnimationTime++;
+            if (this.upgradeAnimationTime >= this.upgradeAnimationDuration) {
+                this.upgradeAnimation = false;
+            }
+        }
+
         // Draw range indicator if selected
         if (showRange) {
             ctx.save();
@@ -551,18 +562,32 @@ class Tower {
         ctx.fill();
         ctx.restore();
 
+        // Upgrade animation glow
+        if (this.upgradeAnimation) {
+            const progress = this.upgradeAnimationTime / this.upgradeAnimationDuration;
+            const pulse = Math.sin(progress * Math.PI * 4) * 0.3 + 0.7;
+            ctx.save();
+            ctx.globalAlpha = (1 - progress) * 0.5;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * (1 + progress * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Draw tower base with enhanced gradient
         const baseGradient = ctx.createRadialGradient(
             this.x - this.size * 0.3, this.y - this.size * 0.3, 0,
             this.x, this.y, this.size
         );
+        const sizeMultiplier = this.upgradeAnimation ? 1 + (this.upgradeAnimationTime / this.upgradeAnimationDuration) * 0.2 : 1;
         baseGradient.addColorStop(0, this.lightenColor(this.color, 0.3));
         baseGradient.addColorStop(0.5, this.color);
         baseGradient.addColorStop(1, this.darkenColor(this.color, 0.5));
         
         ctx.fillStyle = baseGradient;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size * sizeMultiplier, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw inner highlight
@@ -582,24 +607,15 @@ class Tower {
         ctx.stroke();
         ctx.restore();
 
-        // Draw tower top (cannon/barrel) with better graphics and smooth rotation
+        // Draw tower top (cannon/barrel) with better graphics
         if (this.target && !this.target.isDead) {
-            const targetAngle = Math.atan2(
+            const angle = Math.atan2(
                 this.target.position.y - this.y,
                 this.target.position.x - this.x
             );
-            
-            // Smooth rotation interpolation
-            if (!this.currentAngle) this.currentAngle = 0;
-            let angleDiff = targetAngle - this.currentAngle;
-            // Normalize angle difference
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            this.currentAngle += angleDiff * 0.3; // Smooth interpolation
-            
             ctx.save();
             ctx.translate(this.x, this.y);
-            ctx.rotate(this.currentAngle);
+            ctx.rotate(angle);
             
             // Barrel shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -647,32 +663,6 @@ class Tower {
         ctx.textBaseline = 'middle';
         ctx.fillText(this.level, this.x, this.y + this.size * 0.7);
         ctx.restore();
-
-        // Draw upgrade animation
-        if (this.upgradeAnimation > 0) {
-            ctx.save();
-            const alpha = this.upgradeAnimation / 30;
-            const scale = 1 + (1 - alpha) * 0.3;
-            ctx.globalAlpha = alpha;
-            ctx.strokeStyle = '#f39c12';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size * scale, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Particle effect
-            for (let i = 0; i < 8; i++) {
-                const angle = (Math.PI * 2 * i) / 8;
-                const dist = this.size * scale;
-                const x = this.x + Math.cos(angle) * dist;
-                const y = this.y + Math.sin(angle) * dist;
-                ctx.fillStyle = '#f39c12';
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
 
         // Draw projectiles
         for (const projectile of this.projectiles) {
