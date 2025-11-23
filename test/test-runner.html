@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Defense Game - Test Suite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a252f;
+            color: #ecf0f1;
+        }
+        #test-results {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-summary-total {
+            background: #2c3e50;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid #667eea;
+        }
+        .test-suite {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .test-suite h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .test-summary {
+            color: #95a5a6;
+            margin-bottom: 10px;
+        }
+        .test-list {
+            list-style: none;
+            padding: 0;
+        }
+        .test-list li {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background: #2c3e50;
+        }
+        .test-passed {
+            color: #2ecc71;
+        }
+        .test-failed {
+            color: #e74c3c;
+        }
+        .test-error {
+            color: #f39c12;
+            font-size: 0.9em;
+            margin-top: 5px;
+            padding-left: 20px;
+        }
+        h1 {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tower Defense Game - Test Suite</h1>
+    <div id="test-results"></div>
+
+    <!-- Load all game scripts first -->
+    <script src="../seedrandom.js"></script>
+    <script src="../path.js"></script>
+    <script src="../particle.js"></script>
+    <script src="../damageNumbers.js"></script>
+    <script src="../abilities.js"></script>
+    <script src="../research.js"></script>
+    <script src="../achievements.js"></script>
+    <script src="../statistics.js"></script>
+    <script src="../campaign.js"></script>
+    <script src="../enemy.js"></script>
+    <script src="../tower.js"></script>
+    
+    <!-- Load test framework and tests -->
+    <script src="test-framework.js"></script>
+    <script src="tests.js"></script>
+</body>
+</html>
+

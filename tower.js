@@ -43,7 +43,7 @@ class Projectile {
     }
 
     checkHit(enemy) {
-        if (this.hit) return false;
+        if (this.hit || !enemy || enemy.isDead || enemy.reachedEnd) return false;
         const distance = Math.sqrt(
             Math.pow(this.x - enemy.position.x, 2) + 
             Math.pow(this.y - enemy.position.y, 2)
@@ -53,16 +53,20 @@ class Projectile {
 }
 
 class Tower {
-    constructor(x, y, type, particleSystem) {
+    constructor(x, y, type, particleSystem, damageNumberSystem = null, game = null) {
         this.x = x;
         this.y = y;
         this.type = type;
         this.particleSystem = particleSystem;
+        this.damageNumberSystem = damageNumberSystem;
+        this.game = game;
         this.projectiles = [];
         this.lastShotTime = 0;
         this.target = null;
         this.level = 1;
         this.totalUpgradeCost = 0; // Track total spent on upgrades
+        this.kills = 0; // Track total kills
+        this.totalDamage = 0; // Track total damage dealt
         
         // Tower type configurations
         const types = {
@@ -103,53 +107,181 @@ class Tower {
                 name: 'Cannon',
                 areaDamage: true,
                 areaRadius: 60
+            },
+            debuff: {
+                damage: 5,
+                range: 200,
+                fireRate: 2000,
+                cost: 175,
+                color: '#8e44ad',
+                upgradeCost: 90,
+                name: 'Debuff Tower',
+                debuff: true,
+                slowAmount: 0.5, // 50% speed reduction
+                debuffDuration: 3000 // 3 seconds
+            },
+            support: {
+                damage: 0,
+                range: 250,
+                fireRate: 0,
+                cost: 150,
+                color: '#2ecc71',
+                upgradeCost: 80,
+                name: 'Support Tower',
+                support: true,
+                damageBoost: 1.3, // 30% damage boost
+                rangeBoost: 1.2 // 20% range boost
+            },
+            chain: {
+                damage: 25,
+                range: 160,
+                fireRate: 1200,
+                cost: 225,
+                color: '#1abc9c',
+                upgradeCost: 110,
+                name: 'Chain Lightning',
+                chainLightning: true,
+                chainCount: 3,
+                chainRange: 100
             }
         };
 
         const config = types[type] || types.basic;
-        this.damage = config.damage;
-        this.range = config.range;
-        this.fireRate = config.fireRate;
+        // Apply research upgrades if game reference exists
+        const damageMultiplier = this.game?.researchSystem?.getUpgradeMultiplier('damage') || 1.0;
+        const rangeMultiplier = this.game?.researchSystem?.getUpgradeMultiplier('range') || 1.0;
+        const fireRateMultiplier = this.game?.researchSystem?.getUpgradeMultiplier('fireRate') || 1.0;
+        
+        this.damage = Math.floor(config.damage * damageMultiplier);
+        this.range = Math.floor(config.range * rangeMultiplier);
+        this.fireRate = Math.floor(config.fireRate * fireRateMultiplier);
         this.cost = config.cost;
         this.color = config.color;
         this.upgradeCost = config.upgradeCost;
         this.name = config.name;
         this.areaDamage = config.areaDamage || false;
         this.areaRadius = config.areaRadius || 0;
+        this.debuff = config.debuff || false;
+        this.slowAmount = config.slowAmount || 0.5;
+        this.debuffDuration = config.debuffDuration || 3000;
+        this.support = config.support || false;
+        this.damageBoost = config.damageBoost || 1.3;
+        this.rangeBoost = config.rangeBoost || 1.2;
+        this.chainLightning = config.chainLightning || false;
+        this.chainCount = config.chainCount || 3;
+        this.chainRange = config.chainRange || 100;
         this.size = 25;
+        this.targetingMode = 'closest'; // closest, farthest, strongest, weakest, first
+        this.buffedTowers = []; // Towers receiving support buffs
+        this.debuffedEnemies = new Map(); // Track debuffed enemies
+        this.receivingSupport = false;
+        this.supportDamageMultiplier = 1.0;
+        this.supportRangeMultiplier = 1.0;
+        this.currentAngle = 0; // For smooth rotation
+        this.upgradeAnimation = 0; // For upgrade visual effect
     }
 
     findTarget(enemies) {
-        let closestEnemy = null;
-        let closestDistance = this.range;
-
-        for (const enemy of enemies) {
-            if (enemy.isDead || enemy.reachedEnd) continue;
-            
-            const distance = this.getDistanceTo(enemy.position.x, enemy.position.y);
-            if (distance <= this.range && distance < closestDistance) {
-                closestDistance = distance;
-                closestEnemy = enemy;
-            }
+        const validEnemies = enemies.filter(e => !e.isDead && !e.reachedEnd);
+        if (validEnemies.length === 0) {
+            this.target = null;
+            return null;
         }
 
-        this.target = closestEnemy;
-        return closestEnemy;
+        // Apply support range boost
+        const actualRange = this.range * (this.supportRangeMultiplier || 1.0);
+
+        // Filter enemies in range
+        const enemiesInRange = validEnemies.filter(enemy => {
+            const distance = this.getDistanceTo(enemy.position.x, enemy.position.y);
+            return distance <= actualRange;
+        });
+
+        if (enemiesInRange.length === 0) {
+            this.target = null;
+            return null;
+        }
+
+        let selectedEnemy = null;
+
+        switch (this.targetingMode) {
+            case 'closest':
+                selectedEnemy = enemiesInRange.reduce((closest, enemy) => {
+                    const dist1 = this.getDistanceTo(closest.position.x, closest.position.y);
+                    const dist2 = this.getDistanceTo(enemy.position.x, enemy.position.y);
+                    return dist2 < dist1 ? enemy : closest;
+                });
+                break;
+
+            case 'farthest':
+                selectedEnemy = enemiesInRange.reduce((farthest, enemy) => {
+                    const dist1 = this.getDistanceTo(farthest.position.x, farthest.position.y);
+                    const dist2 = this.getDistanceTo(enemy.position.x, enemy.position.y);
+                    return dist2 > dist1 ? enemy : farthest;
+                });
+                break;
+
+            case 'strongest':
+                selectedEnemy = enemiesInRange.reduce((strongest, enemy) => {
+                    return enemy.health > strongest.health ? enemy : strongest;
+                });
+                break;
+
+            case 'weakest':
+                selectedEnemy = enemiesInRange.reduce((weakest, enemy) => {
+                    return enemy.health < weakest.health ? enemy : weakest;
+                });
+                break;
+
+            case 'first':
+                selectedEnemy = enemiesInRange.reduce((first, enemy) => {
+                    return enemy.progress > first.progress ? enemy : first;
+                });
+                break;
+
+            default:
+                // Default to closest
+                selectedEnemy = enemiesInRange.reduce((closest, enemy) => {
+                    const dist1 = this.getDistanceTo(closest.position.x, closest.position.y);
+                    const dist2 = this.getDistanceTo(enemy.position.x, enemy.position.y);
+                    return dist2 < dist1 ? enemy : closest;
+                });
+        }
+
+        this.target = selectedEnemy;
+        return selectedEnemy;
+    }
+
+    setTargetingMode(mode) {
+        const validModes = ['closest', 'farthest', 'strongest', 'weakest', 'first'];
+        if (validModes.includes(mode)) {
+            this.targetingMode = mode;
+        }
     }
 
     shoot(currentTime) {
+        if (this.support) return; // Support towers don't shoot
+        
         if (!this.target || this.target.isDead || this.target.reachedEnd) {
             this.target = null;
             return;
         }
 
-        if (currentTime - this.lastShotTime >= this.fireRate) {
+        // Apply ability speed boost
+        const speedMultiplier = this.game?.abilitySpeedBoost || 1.0;
+        const effectiveFireRate = this.fireRate / speedMultiplier;
+
+        if (currentTime - this.lastShotTime >= effectiveFireRate) {
+            // Apply support damage boost
+            const actualDamage = this.damage * (this.supportDamageMultiplier || 1.0);
+            const actualRange = this.range * (this.supportRangeMultiplier || 1.0);
+            
             const projectile = new Projectile(
                 this.x,
                 this.y,
                 this.target.position.x,
                 this.target.position.y,
-                this.damage,
+                actualDamage,
                 8,
                 this.color
             );
@@ -158,7 +290,18 @@ class Tower {
         }
     }
 
-    update(enemies, currentTime) {
+    update(enemies, currentTime, towers = []) {
+        // Update upgrade animation
+        if (this.upgradeAnimation > 0) {
+            this.upgradeAnimation--;
+        }
+
+        // Support towers don't shoot, they buff nearby towers
+        if (this.support) {
+            this.updateSupportBuffs(towers, currentTime);
+            return;
+        }
+
         // Update projectiles
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
@@ -175,19 +318,72 @@ class Tower {
                         Math.pow(projectile.y - enemy.position.y, 2)
                     );
                     if (distance < this.areaRadius) {
-                        enemy.takeDamage(projectile.damage);
+                        enemy.takeDamage(projectile.damage, this.damageNumberSystem);
                         hitSomething = true;
                     }
                 }
                 if (hitSomething) {
+                    // Track damage and kills for area damage
+                    let killedEnemies = 0;
+                    for (const enemy of enemies) {
+                        if (enemy.isDead && !enemy.reachedEnd) {
+                            const distance = Math.sqrt(
+                                Math.pow(projectile.x - enemy.position.x, 2) + 
+                                Math.pow(projectile.y - enemy.position.y, 2)
+                            );
+                            if (distance < this.areaRadius) {
+                                killedEnemies++;
+                            }
+                        }
+                    }
+                    this.kills += killedEnemies;
+                    this.totalDamage += projectile.damage * (hitSomething ? 1 : 0);
                     this.particleSystem.createExplosion(projectile.x, projectile.y, this.color, 20);
+                    this.projectiles.splice(i, 1);
+                }
+            } else if (this.chainLightning) {
+                // Chain lightning - damage chains between enemies
+                if (this.target && !this.target.isDead && !this.target.reachedEnd) {
+                    if (projectile.checkHit(this.target)) {
+                        this.applyChainLightning(this.target, enemies, projectile.damage, currentTime);
+                        this.particleSystem.createExplosion(projectile.x, projectile.y, this.color, 15);
+                        this.projectiles.splice(i, 1);
+                    }
+                } else {
+                    this.projectiles.splice(i, 1);
+                }
+            } else if (this.debuff) {
+                // Debuff tower - applies slow effect
+                if (this.target && !this.target.isDead && !this.target.reachedEnd) {
+                    if (projectile.checkHit(this.target)) {
+                        this.target.takeDamage(projectile.damage, this.damageNumberSystem);
+                        this.applyDebuff(this.target, currentTime);
+                        this.totalDamage += projectile.damage;
+                        this.particleSystem.createHit(projectile.x, projectile.y, this.color);
+                        this.projectiles.splice(i, 1);
+                        if (this.target.isDead) {
+                            this.kills++;
+                        }
+                    }
+                } else {
                     this.projectiles.splice(i, 1);
                 }
             } else {
                 // Single target damage
-                if (projectile.checkHit(this.target)) {
-                    this.target.takeDamage(projectile.damage);
-                    this.particleSystem.createHit(projectile.x, projectile.y, this.color);
+                if (this.target && !this.target.isDead && !this.target.reachedEnd) {
+                    if (projectile.checkHit(this.target)) {
+                        const wasAlive = !this.target.isDead;
+                        this.target.takeDamage(projectile.damage, this.damageNumberSystem);
+                        this.totalDamage += projectile.damage;
+                        this.particleSystem.createHit(projectile.x, projectile.y, this.color);
+                        this.projectiles.splice(i, 1);
+                        // Check if enemy died from this hit
+                        if (wasAlive && this.target.isDead) {
+                            this.kills++;
+                        }
+                    }
+                } else {
+                    // Target is invalid, remove projectile
                     this.projectiles.splice(i, 1);
                 }
             }
@@ -207,6 +403,83 @@ class Tower {
         this.shoot(currentTime);
     }
 
+    applyDebuff(enemy, currentTime) {
+        if (!enemy) return;
+        enemy.debuffed = true;
+        enemy.debuffEndTime = currentTime + this.debuffDuration;
+        if (!enemy.originalSpeed) {
+            enemy.originalSpeed = enemy.speed;
+        }
+        enemy.speed = enemy.originalSpeed * (1 - this.slowAmount);
+    }
+
+    applyChainLightning(firstTarget, enemies, damage, currentTime) {
+        const hitEnemies = [firstTarget];
+        let currentTarget = firstTarget;
+        let remainingChains = this.chainCount;
+
+        while (remainingChains > 0) {
+            let nextTarget = null;
+            let closestDistance = this.chainRange;
+
+            for (const enemy of enemies) {
+                if (enemy.isDead || enemy.reachedEnd || hitEnemies.includes(enemy)) continue;
+                
+                const distance = Math.sqrt(
+                    Math.pow(currentTarget.position.x - enemy.position.x, 2) + 
+                    Math.pow(currentTarget.position.y - enemy.position.y, 2)
+                );
+                
+                if (distance < closestDistance && distance < this.chainRange) {
+                    closestDistance = distance;
+                    nextTarget = enemy;
+                }
+            }
+
+            if (nextTarget) {
+                hitEnemies.push(nextTarget);
+                nextTarget.takeDamage(damage * 0.7, this.damageNumberSystem); // Chain damage reduces
+                this.totalDamage += damage * 0.7;
+                if (nextTarget.isDead) {
+                    this.kills++;
+                }
+                currentTarget = nextTarget;
+                remainingChains--;
+            } else {
+                break; // No more targets in range
+            }
+        }
+
+        // Visual effect for chain
+        for (let i = 0; i < hitEnemies.length - 1; i++) {
+            const from = hitEnemies[i];
+            const to = hitEnemies[i + 1];
+            this.particleSystem.createChainEffect(
+                from.position.x, from.position.y,
+                to.position.x, to.position.y,
+                this.color
+            );
+        }
+    }
+
+    updateSupportBuffs(towers, currentTime) {
+        this.buffedTowers = [];
+        for (const tower of towers) {
+            if (tower === this || tower.support) continue;
+            const distance = this.getDistanceTo(tower.x, tower.y);
+            if (distance <= this.range) {
+                tower.receivingSupport = true;
+                tower.supportDamageMultiplier = this.damageBoost;
+                tower.supportRangeMultiplier = this.rangeBoost;
+                this.buffedTowers.push(tower);
+            } else if (tower.receivingSupport) {
+                tower.receivingSupport = false;
+                tower.supportDamageMultiplier = 1.0;
+                tower.supportRangeMultiplier = 1.0;
+            }
+        }
+    }
+
     upgrade() {
         const currentUpgradeCost = this.getUpgradeCost();
         this.totalUpgradeCost += currentUpgradeCost;
@@ -215,6 +488,7 @@ class Tower {
         this.range = Math.floor(this.range * 1.2);
         this.fireRate = Math.max(100, this.fireRate * 0.9);
         this.upgradeCost = Math.floor(this.upgradeCost * 1.5);
+        this.upgradeAnimation = 30; // Start upgrade animation
     }
 
     getUpgradeCost() {
@@ -225,22 +499,47 @@ class Tower {
         // Draw range indicator if selected
         if (showRange) {
             ctx.save();
+            const actualRange = this.range * (this.supportRangeMultiplier || 1.0);
             // Outer glow
             ctx.globalAlpha = 0.1;
             ctx.fillStyle = this.color;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.range + 10, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, actualRange + 10, 0, Math.PI * 2);
             ctx.fill();
             // Main range circle
             ctx.globalAlpha = 0.2;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, actualRange, 0, Math.PI * 2);
             ctx.fill();
             // Border
             ctx.globalAlpha = 0.4;
             ctx.strokeStyle = this.color;
             ctx.lineWidth = 2;
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw support aura
+        if (this.support) {
+            ctx.save();
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Draw support buff indicator
+        if (this.receivingSupport) {
+            ctx.save();
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size + 3, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
             ctx.restore();
         }
 
@@ -283,15 +582,24 @@ class Tower {
         ctx.stroke();
         ctx.restore();
 
-        // Draw tower top (cannon/barrel) with better graphics
+        // Draw tower top (cannon/barrel) with better graphics and smooth rotation
         if (this.target && !this.target.isDead) {
-            const angle = Math.atan2(
+            const targetAngle = Math.atan2(
                 this.target.position.y - this.y,
                 this.target.position.x - this.x
             );
+            
+            // Smooth rotation interpolation
+            if (!this.currentAngle) this.currentAngle = 0;
+            let angleDiff = targetAngle - this.currentAngle;
+            // Normalize angle difference
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            this.currentAngle += angleDiff * 0.3; // Smooth interpolation
+            
             ctx.save();
             ctx.translate(this.x, this.y);
-            ctx.rotate(angle);
+            ctx.rotate(this.currentAngle);
             
             // Barrel shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -340,6 +648,32 @@ class Tower {
         ctx.fillText(this.level, this.x, this.y + this.size * 0.7);
         ctx.restore();
 
+        // Draw upgrade animation
+        if (this.upgradeAnimation > 0) {
+            ctx.save();
+            const alpha = this.upgradeAnimation / 30;
+            const scale = 1 + (1 - alpha) * 0.3;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * scale, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Particle effect
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                const dist = this.size * scale;
+                const x = this.x + Math.cos(angle) * dist;
+                const y = this.y + Math.sin(angle) * dist;
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
         // Draw projectiles
         for (const projectile of this.projectiles) {
             projectile.render(ctx);
@@ -371,6 +705,27 @@ class Tower {
     containsPoint(x, y) {
         const distance = Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
         return distance <= this.size;
+    }
+
+    getDPS() {
+        // Calculate DPS based on damage and fire rate
+        const shotsPerSecond = 1000 / this.fireRate;
+        return (this.damage * shotsPerSecond).toFixed(1);
+    }
+
+    getStats() {
+        return {
+            name: this.name,
+            level: this.level,
+            damage: this.damage,
+            range: this.range,
+            fireRate: this.fireRate,
+            dps: this.getDPS(),
+            kills: this.kills,
+            totalDamage: this.totalDamage,
+            upgradeCost: this.getUpgradeCost(),
+            targetingMode: this.targetingMode
+        };
     }
 }
 

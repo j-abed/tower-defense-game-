@@ -26,7 +26,12 @@ class Ability {
         this.active = true;
         this.activeUntil = currentTime + this.duration;
         
-        this.effect(game, currentTime);
+        // Call effect.apply if it's an object, otherwise call as function
+        if (typeof this.effect === 'object' && this.effect.apply) {
+            this.effect.apply(game, currentTime);
+        } else if (typeof this.effect === 'function') {
+            this.effect(game, currentTime);
+        }
         return true;
     }
 

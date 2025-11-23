@@ -24,19 +24,40 @@ class Path {
         
         let currentX = 0;
         let currentY = startY;
-        let direction = 1; // 1 = right, -1 = left (but we always move right overall)
         
-        // Generate intermediate waypoints
+        // Generate intermediate waypoints with smoother transitions
+        let lastDirection = 0; // Track last vertical movement direction
+        
         for (let i = 0; i < numSegments - 1; i++) {
             const progress = (i + 1) / numSegments;
             const targetX = progress * width;
             
-            // Determine if we should go up or down
-            const verticalDirection = this.rng.choice([-1, 1]);
-            const verticalDistance = this.rng.random(minSegmentLength, maxSegmentLength);
+            // Determine vertical direction with bias to avoid sharp reversals
+            let verticalDirection;
+            if (lastDirection === 0) {
+                // First segment - random direction
+                verticalDirection = this.rng.choice([-1, 1]);
+            } else {
+                // Prefer continuing in same direction or slight variation
+                const rand = this.rng.random();
+                if (rand < 0.3) {
+                    // 30% chance to reverse
+                    verticalDirection = -lastDirection;
+                } else if (rand < 0.7) {
+                    // 40% chance to continue same direction
+                    verticalDirection = lastDirection;
+                } else {
+                    // 30% chance for slight variation (smaller movement)
+                    verticalDirection = lastDirection * 0.5;
+                }
+            }
             
-            // Calculate next waypoint
-            let nextX = targetX + this.rng.random(-50, 50);
+            // Calculate distance with variation
+            const baseDistance = this.rng.random(minSegmentLength, maxSegmentLength);
+            const verticalDistance = baseDistance * (Math.abs(verticalDirection) || 1);
+            
+            // Calculate next waypoint with smoother progression
+            let nextX = targetX + this.rng.random(-30, 30); // Reduced horizontal variation
             let nextY = currentY + (verticalDirection * verticalDistance);
             
             // Keep within bounds
@@ -51,32 +72,63 @@ class Path {
             waypoints.push({ x: nextX, y: nextY });
             currentX = nextX;
             currentY = nextY;
+            lastDirection = verticalDirection > 0 ? 1 : (verticalDirection < 0 ? -1 : 0);
         }
         
         // End point - always on right edge
         const endY = this.rng.random(0.1, 0.9) * height;
         waypoints.push({ x: width, y: endY });
         
-        // Smooth the path a bit - add intermediate points for smoother curves
-        const smoothedWaypoints = [waypoints[0]];
-        for (let i = 1; i < waypoints.length; i++) {
-            const prev = waypoints[i - 1];
-            const curr = waypoints[i];
-            const distance = Math.sqrt(
-                Math.pow(curr.x - prev.x, 2) + Math.pow(curr.y - prev.y, 2)
-            );
+        // Apply Catmull-Rom spline smoothing to create smooth curves
+        return this.smoothPath(waypoints);
+    }
+
+    // Smooth path using Catmull-Rom spline interpolation
+    smoothPath(waypoints) {
+        if (waypoints.length < 2) return waypoints;
+        
+        const smoothed = [waypoints[0]]; // Keep first point
+        const tension = 0.5; // Controls curve tightness (0-1)
+        const segmentsPerCurve = 8; // Number of points per curve segment
+        
+        for (let i = 0; i < waypoints.length - 1; i++) {
+            const p0 = i > 0 ? waypoints[i - 1] : waypoints[i];
+            const p1 = waypoints[i];
+            const p2 = waypoints[i + 1];
+            const p3 = i < waypoints.length - 2 ? waypoints[i + 2] : waypoints[i + 1];
             
-            // If segment is too long, add a midpoint
-            if (distance > maxSegmentLength * 1.5) {
-                smoothedWaypoints.push({
-                    x: (prev.x + curr.x) / 2,
-                    y: (prev.y + curr.y) / 2
-                });
+            // Generate smooth curve points between p1 and p2
+            for (let j = 1; j < segmentsPerCurve; j++) {
+                const t = j / segmentsPerCurve;
+                const point = this.catmullRom(p0, p1, p2, p3, t, tension);
+                smoothed.push(point);
             }
-            smoothedWaypoints.push(curr);
         }
         
-        return smoothedWaypoints;
+        smoothed.push(waypoints[waypoints.length - 1]); // Keep last point
+        return smoothed;
+    }
+
+    // Catmull-Rom spline interpolation
+    catmullRom(p0, p1, p2, p3, t, tension) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        
+        const x = 0.5 * (
+            (2 * p1.x) +
+            (-p0.x + p2.x) * t +
+            (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+            (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+        ) * tension + (1 - tension) * (p1.x + (p2.x - p1.x) * t);
+        
+        const y = 0.5 * (
+            (2 * p1.y) +
+            (-p0.y + p2.y) * t +
+            (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+            (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+        ) * tension + (1 - tension) * (p1.y + (p2.y - p1.y) * t);
+        
+        return { x, y };
     }
 
     setCanvasSize(width, height) {
@@ -132,8 +184,10 @@ class Path {
     }
 
     // Render the path on canvas
-    render(ctx, canvasWidth, canvasHeight) {
+    render(ctx, canvasWidth, canvasHeight, theme = 'default') {
         ctx.save();
+        
+        const themeColors = this.getThemeColors(theme);
         
         // Draw path shadow
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
@@ -149,9 +203,9 @@ class Path {
         
         // Draw path background (darker) with gradient
         const pathGradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-        pathGradient.addColorStop(0, '#34495e');
-        pathGradient.addColorStop(0.5, '#2c3e50');
-        pathGradient.addColorStop(1, '#34495e');
+        pathGradient.addColorStop(0, themeColors.path);
+        pathGradient.addColorStop(0.5, themeColors.pathDark);
+        pathGradient.addColorStop(1, themeColors.path);
         ctx.strokeStyle = pathGradient;
         ctx.lineWidth = 50;
         ctx.lineCap = 'round';
@@ -164,7 +218,7 @@ class Path {
         ctx.stroke();
 
         // Draw path center line (lighter) with highlight
-        ctx.strokeStyle = '#95a5a6';
+        ctx.strokeStyle = themeColors.pathLight;
         ctx.lineWidth = 30;
         ctx.beginPath();
         ctx.moveTo(this.waypoints[0].x, this.waypoints[0].y);
@@ -174,7 +228,7 @@ class Path {
         ctx.stroke();
         
         // Draw path center highlight
-        ctx.strokeStyle = '#bdc3c7';
+        ctx.strokeStyle = themeColors.pathHighlight;
         ctx.lineWidth = 8;
         ctx.beginPath();
         ctx.moveTo(this.waypoints[0].x, this.waypoints[0].y);
@@ -184,7 +238,7 @@ class Path {
         ctx.stroke();
 
         // Draw waypoint markers
-        ctx.fillStyle = '#95a5a6';
+        ctx.fillStyle = themeColors.pathLight;
         for (let i = 0; i < this.waypoints.length; i++) {
             ctx.beginPath();
             ctx.arc(this.waypoints[i].x, this.waypoints[i].y, 8, 0, Math.PI * 2);
@@ -235,6 +289,42 @@ class Path {
         ctx.restore();
 
         ctx.restore();
+    }
+
+    getThemeColors(theme) {
+        const themes = {
+            default: {
+                path: '#34495e',
+                pathDark: '#2c3e50',
+                pathLight: '#95a5a6',
+                pathHighlight: '#bdc3c7'
+            },
+            desert: {
+                path: '#c49464',
+                pathDark: '#b88454',
+                pathLight: '#d4a574',
+                pathHighlight: '#e4b584'
+            },
+            snow: {
+                path: '#d0e8f0',
+                pathDark: '#b8dce8',
+                pathLight: '#e8f4f8',
+                pathHighlight: '#f0f8fc'
+            },
+            space: {
+                path: '#1a1a2e',
+                pathDark: '#0f0f1f',
+                pathLight: '#2a2a3e',
+                pathHighlight: '#3a3a4e'
+            },
+            forest: {
+                path: '#3d6026',
+                pathDark: '#2d5016',
+                pathLight: '#4d7036',
+                pathHighlight: '#5d8046'
+            }
+        };
+        return themes[theme] || themes.default;
     }
 
     // Check if a point is on the path (for tower placement validation)

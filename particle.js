@@ -103,5 +103,19 @@ class ParticleSystem {
             particle.render(ctx);
         }
     }
+
+    // Create chain lightning effect
+    createChainEffect(x1, y1, x2, y2, color) {
+        // Create particles along the chain path
+        const steps = 10;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = x1 + (x2 - x1) * t;
+            const y = y1 + (y2 - y1) * t;
+            const size = 3 + Math.random() * 2;
+            const life = 5 + Math.random() * 5;
+            this.particles.push(new Particle(x, y, 0, 0, color, size, life));
+        }
+    }
 }
 

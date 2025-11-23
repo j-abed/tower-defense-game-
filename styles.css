@@ -50,18 +50,183 @@ body {
     color: white;
 }
 
-.stats-panel, .tower-selection, .game-controls, .map-controls {
+.stats-panel, .tower-selection, .game-controls, .map-controls, .tower-info-panel, .wave-preview, .difficulty-controls, .abilities-panel, .research-panel, .achievements-panel, .statistics-panel, .theme-controls, .campaign-panel {
     background: #2c3e50;
     border-radius: 10px;
     padding: 15px;
+    max-height: 500px;
+    overflow-y: auto;
 }
 
-.stats-panel h2, .tower-selection h2, .map-controls h2 {
+.stats-panel h2, .tower-selection h2, .map-controls h2, .tower-info-panel h2, .wave-preview h2, .difficulty-controls h2, .abilities-panel h2, .research-panel h2, .achievements-panel h2, .statistics-panel h2, .theme-controls h2, .campaign-panel h2 {
     margin-bottom: 15px;
     color: #ecf0f1;
     font-size: 1.2em;
     border-bottom: 2px solid #667eea;
     padding-bottom: 10px;
+}
+
+.campaign-level.current {
+    border-color: #f39c12 !important;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
+}
+
+/* Tooltip styles */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #2c3e50;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 3000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.85em;
+    border: 2px solid #667eea;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+.statistics-panel h3 {
+    color: #ecf0f1;
+    font-size: 1em;
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+.abilities-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.ability-btn {
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    text-align: center;
+}
+
+.ability-btn:hover:not(:disabled) {
+    background: #667eea;
+    transform: scale(1.05);
+}
+
+.ability-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ability-name {
+    font-weight: bold;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+
+.ability-cost {
+    font-size: 0.8em;
+    color: #f39c12;
+}
+
+.difficulty-select {
+    width: 100%;
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    padding: 8px;
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.difficulty-select:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 5px rgba(243, 156, 18, 0.3);
+}
+
+.difficulty-description {
+    font-size: 0.85em;
+    color: #bdc3c7;
+    line-height: 1.4;
+    padding-top: 8px;
+    border-top: 1px solid #34495e;
+}
+
+.tower-targeting-select {
+    background: #34495e;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: white;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex: 1;
+}
+
+.tower-targeting-select:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 5px rgba(243, 156, 18, 0.3);
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 }
 
 .stat-item {
@@ -133,6 +298,18 @@ body {
 
 .cannon-tower {
     background: linear-gradient(135deg, #f39c12, #e67e22);
+}
+
+.debuff-tower {
+    background: linear-gradient(135deg, #8e44ad, #7d3c98);
+}
+
+.support-tower {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.chain-tower {
+    background: linear-gradient(135deg, #1abc9c, #16a085);
 }
 
 .tower-info {
